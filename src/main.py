@@ -120,11 +120,11 @@ def handle_add_property() -> None:
     size = prompt_int("Size (m2)")
     print(f"\n  Sun options: {SUN_OPTS}")
     sun = prompt("Sun exposure")
-    folder = prompt("Property folder path (photos + descricao.txt)")
+    folder = prompt("Property folder path (photos + Descrição.txt)")
 
-    desc_file = Path(folder) / "descricao.txt"
+    desc_file = Path(folder) / "Descrição.txt"
     if not desc_file.is_file():
-        raise FileNotFoundError(f"'descricao.txt' not found in '{folder}'.")
+        raise FileNotFoundError(f"'Descrição.txt' not found in '{folder}'.")
     description = desc_file.read_text(encoding="utf-8").strip()
 
     imovel_id = add_property(
