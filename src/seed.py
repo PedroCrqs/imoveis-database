@@ -1,7 +1,8 @@
-from database import BASE_DIR, DATA_PATH, SCRIPTS_PATH, DB_PATH, sqlite3
+from database import DB_PATH
+import sqlite3
 
 
-def populate_bairros():
+def populate_bairros() -> None:
     bairros = [
         ("Laranjeiras", "Zona Sul"),
         ("Flamengo", "Zona Sul"),
@@ -22,7 +23,7 @@ def populate_bairros():
             "INSERT INTO Bairros (Nome, BairroZona) VALUES (?, ?)", bairros
         )
         conn.commit()
-        print(f"✔️ {cursor.rowcount} neighborhoods successfully included!")
+        print(f"[OK] {cursor.rowcount} neighborhoods successfully added.")
 
 
 if __name__ == "__main__":
