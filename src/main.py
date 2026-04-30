@@ -10,6 +10,7 @@ from repository import (
     VALID_STATUS,
     IMOVEIS_UPDATABLE,
 )
+from pathlib import Path
 import sqlite3
 
 # ─────────────────────────────────────────────
@@ -110,7 +111,6 @@ def handle_add_property() -> None:
     print(f"  Types: {TIPOLOGIA}")
     tipologia = prompt("Type")
     address = prompt("Address")
-    description = prompt("Description")
     owner_id = prompt_int("Owner (seller) ID")
     neighborhood_id = prompt_int("Neighborhood ID")
     condo_id = prompt_int("Condo ID")
@@ -120,7 +120,12 @@ def handle_add_property() -> None:
     size = prompt_int("Size (m2)")
     print(f"\n  Sun options: {SUN_OPTS}")
     sun = prompt("Sun exposure")
-    photos_folder = prompt("Photos folder path (name '0.xxx' for cover)")
+    folder = prompt("Property folder path (photos + descricao.txt)")
+
+    desc_file = Path(folder) / "descricao.txt"
+    if not desc_file.is_file():
+        raise FileNotFoundError(f"'descricao.txt' not found in '{folder}'.")
+    description = desc_file.read_text(encoding="utf-8").strip()
 
     imovel_id = add_property(
         tipologia,
@@ -137,7 +142,7 @@ def handle_add_property() -> None:
     )
     ok(f"Property added with ID {imovel_id}.")
 
-    inserted = add_photos(photos_folder, imovel_id)
+    inserted = add_photos(folder, imovel_id)
     ok(f"{len(inserted)} photo(s) registered.")
 
 
