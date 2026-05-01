@@ -19,6 +19,7 @@ from repository import (
 from pathlib import Path
 import sqlite3
 import webbrowser
+import os
 
 # ─────────────────────────────────────────────
 #  Helpers
@@ -72,6 +73,19 @@ def open_property_folder(folder_path: str):
         webbrowser.open(path.as_uri())
     else:
         err(f"Erro: O caminho {folder_path} não existe.")
+
+
+def change_folder_name(old_path: str, imovel_id: int) -> str:
+    old_p = Path(old_path).resolve()
+    target_dir = (
+        Path(__file__).resolve().parent.parent
+        / "data"
+        / "imoveis"
+        / f"imovel_{imovel_id}"
+    )
+    target_dir.parent.mkdir(parents=True, exist_ok=True)
+    os.rename(str(old_p), str(target_dir))
+    return str(target_dir)
 
 
 # ─────────────────────────────────────────────
@@ -181,7 +195,9 @@ def handle_add_property() -> None:
     )
     ok(f"Property added with ID {imovel_id}.")
 
-    inserted = add_photos(folder, imovel_id)
+    new_folder = change_folder_name(folder, imovel_id)
+
+    inserted = add_photos(new_folder, imovel_id)
     ok(f"{len(inserted)} photo(s) registered.")
 
 
