@@ -7,23 +7,30 @@ from repository import (
     update_status,
     update_prices,
     update_field,
+    get_property,
+    get_avaliable_properties,
+    get_property_by_neighborhood,
+    get_condo_name,
+    get_owner,
+    get_folder_path,
     VALID_STATUS,
     IMOVEIS_UPDATABLE,
 )
 from pathlib import Path
 import sqlite3
+import webbrowser
 
 # ─────────────────────────────────────────────
 #  Helpers
 # ─────────────────────────────────────────────
 
-DIVIDER = "─" * 42
+DIV = "─" * 42
 
 
 def header(title: str) -> None:
-    print(f"\n{DIVIDER}")
+    print(f"\n{DIV}")
     print(f"  {title}")
-    print(DIVIDER)
+    print(DIV)
 
 
 def ok(msg: str) -> None:
@@ -51,38 +58,65 @@ def prompt_optional_float(label: str) -> float | None:
     return float(raw) if raw else None
 
 
+def parse_optional_int(raw):
+    return int(raw) if raw else None
+
+
+def display_na(raw):
+    return raw if raw else "N/A"
+
+
+def open_property_folder(folder_path: str):
+    path = Path(folder_path).resolve()
+    if path.exists():
+        webbrowser.open(path.as_uri())
+    else:
+        err(f"Erro: O caminho {folder_path} não existe.")
+
+
 # ─────────────────────────────────────────────
 #  Menu
 # ─────────────────────────────────────────────
 
 MENU = """
-{div}
-  IMOVEIS DATABASE  —  Main Menu
-{div}
-  [1] Add neighborhood      [5] Update property status
-  [2] Add seller            [6] Update prices
-  [3] Add condo             [7] Correct a field
-  [4] Add property
-{div}
-  [0] Exit
-{div}""".format(
-    div=DIVIDER
-)
+{DIV}
+      IMOVEIS DATABASE  —  Main Menu
+{DIV}
+  [1] Add neighborhood        
+  [2] Add owner               
+  [3] Add condo               
+  [4] Add property            
+  [5] Update property status  
+  [6] Update prices    
+  [7] Correct a field
+  [8] Find a property
+  [9] Find a property by neighborhood
+  [10] Show available properties
+  [11] Show owner by ID
+{DIV}                       
+  [0] Exit                  
+{DIV}""".format(DIV=DIV)
 
 # ─────────────────────────────────────────────
 #  Handlers — INSERT
 # ─────────────────────────────────────────────
 
-ZONES = "Zona Oeste | Zona Sudoeste | Zona Sul | Zona Norte"
-SUN_OPTS = "Manhã | Tarde | Passante"
-TIPOLOGIA = "Apartamento | Casa | Cobertura | Studio"
+ZONES = ["Zona Oeste", "Zona Sudoeste", "Zona Sul", "Zona Norte"]
+ZONES_LABEL = "0: Zona Oeste, 1: Zona Sudoeste, 2: Zona Sul, 3: Zona Norte"
+SUN_OPTS = ["Manhã", "Tarde", "Passante"]
+SUN_OPTS_LABEL = "0:  Manhã, 1: Tarde, 2: Passante"
+TIPOLOGIA = ["Apartamento", "Casa", "Cobertura", "Studio"]
+TIPOLOGIA_LABEL = "0: Apartamento, 1: Casa, 2: Cobertura, 3: Studio"
+VALID_STATUS_LABEL = (
+    "| 0: Disponível | 1: Vendido | 2: Alugado | 3: Retirado de Venda |"
+)
 
 
 def handle_add_neighborhood() -> None:
     header("Add Neighborhood")
-    print(f"  Zones: {ZONES}")
+    print(f"  Zones: {ZONES_LABEL}")
     name = prompt("Name")
-    zone = prompt("Zone")
+    zone = ZONES[prompt_int("Zone")]
     row_id = add_neighborhood(name, zone)
     ok(f"Neighborhood '{name}' added with ID {row_id}.")
 
@@ -108,18 +142,21 @@ def handle_add_condo() -> None:
 
 def handle_add_property() -> None:
     header("Add Property")
-    print(f"  Types: {TIPOLOGIA}")
-    tipologia = prompt("Type")
+    print(f"  Types: {TIPOLOGIA_LABEL}")
+    tipologia = TIPOLOGIA[prompt_int("Type")]
     address = prompt("Address")
     owner_id = prompt_int("Owner (seller) ID")
     neighborhood_id = prompt_int("Neighborhood ID")
-    condo_id = prompt_int("Condo ID")
+    raw = prompt("Condo ID (Enter to skip)").strip()
+    condo_id = parse_optional_int(raw)
+    rooms = prompt_int("Number of rooms")
+    park = prompt_int("Number of parks")
     price = prompt_float("Price (R$)")
     condo_fee = prompt_float("Condo fee (R$)")
     tax = prompt_float("IPTU (R$)")
     size = prompt_int("Size (m2)")
-    print(f"\n  Sun options: {SUN_OPTS}")
-    sun = prompt("Sun exposure")
+    print(f"\n  Sun options: {SUN_OPTS_LABEL}")
+    sun = SUN_OPTS[prompt_int("Sun exposure")]
     folder = prompt("Property folder path (photos + Descrição.txt)")
 
     desc_file = Path(folder) / "Descrição.txt"
@@ -133,6 +170,8 @@ def handle_add_property() -> None:
         price,
         condo_fee,
         tax,
+        rooms,
+        park,
         size,
         sun,
         neighborhood_id,
@@ -153,11 +192,11 @@ def handle_add_property() -> None:
 
 def handle_update_status() -> None:
     header("Update Property Status")
-    print(f"  Status options: {' | '.join(sorted(VALID_STATUS))}")
-    imovel_id = prompt_int("Property ID")
-    status = prompt("New status")
-    update_status(imovel_id, status)
-    ok(f"Property {imovel_id} marked as '{status}'.")
+    property_id = prompt_int("Property ID")
+    print(f"  Status options: {VALID_STATUS_LABEL}")
+    status = VALID_STATUS[prompt_int("New status")]
+    update_status(property_id, status)
+    ok(f"Property {property_id} marked as '{status}'.")
 
 
 def handle_update_prices() -> None:
@@ -182,6 +221,106 @@ def handle_update_field() -> None:
 
 
 # ─────────────────────────────────────────────
+#  Handlers - SHOW
+# ─────────────────────────────────────────────
+
+
+def handle_find_property() -> None:
+    header("Find a property")
+    property_id = prompt_int("Property ID")
+    prop = get_property(property_id)
+
+    if prop is None:
+        err("Property not found")
+        return
+
+    tipology = prop["Tipologia"]
+    rooms = prop["Quartos"]
+    m4 = prop["Metragem"]
+    value = prop["Valor"]
+    owner_id = prop["ProprietarioID"]
+    owner = get_owner(owner_id)
+    owner_name = owner["Nome"]
+    owner_phone = owner["Telefone"]
+    condo_id = prop["CondominioID"]
+    raw_condo_name = get_condo_name(condo_id)
+    condo_name = display_na(raw_condo_name)
+    status = prop["ImovelStatus"]
+    folder_path = get_folder_path(property_id)
+    menu = f"""
+{DIV}
+            {condo_name}
+{DIV}
+  Tipo: {tipology}        Metragem: {m4}
+  Quartos: {rooms}        Status: {status}
+  Valor: {value}              
+{DIV}                       
+  Proprietário: {owner_name}
+  Telefone: {owner_phone}                 
+{DIV}
+"""
+    print(menu)
+    response = prompt("Press any button for exit or 0 to access folder")
+    if response == "0":
+        open_property_folder(folder_path)
+        return
+
+
+def handle_find_property_by_neighborhood() -> None:
+    # Only avaliable properties
+    header("Find a property by neighborhood")
+    neighborhood_id = prompt_int("Neighborhood ID")
+    prop_list = get_property_by_neighborhood(neighborhood_id)
+    for prop in prop_list:
+        prop_id = prop["ImovelID"]
+        condo_id = prop["CondominioID"]
+        raw_condo_name = get_condo_name(condo_id)
+        condo_name = display_na(raw_condo_name)
+        value = prop["Valor"]
+        tipology = prop["Tipologia"]
+        rooms = prop["Quartos"]
+        print(f"""
+{DIV}
+  ID:{prop_id} | {condo_name} | {tipology} | R$ {value} | {rooms}qts
+{DIV}""")
+    prompt("Enter to return")
+
+
+def handle_show_avaliable_properties() -> None:
+    prop_list = get_avaliable_properties()
+    for prop in prop_list:
+        prop_id = prop["ImovelID"]
+        condo_id = prop["CondominioID"]
+        raw_condo_name = get_condo_name(condo_id)
+        condo_name = display_na(raw_condo_name)
+        value = prop["Valor"]
+        tipology = prop["Tipologia"]
+        rooms = prop["Quartos"]
+        print(f"""
+{DIV}
+  ID:{prop_id} | {condo_name} | {tipology} | R$ {value} | {rooms}qts
+{DIV}""")
+    prompt("Enter to return")
+
+
+def handle_find_owner() -> None:
+    header("Find an owner")
+    owner_id = prompt_int("Owner ID")
+    owner = get_owner(owner_id)
+    owner_name = owner["Nome"]
+    owner_phone = owner["Telefone"]
+    raw_owner_email = owner["Email"]
+    owner_email = display_na(raw_owner_email)
+    print(f"""
+{DIV}
+  ID:{owner_id} | {owner_name}
+  Telefone: {owner_phone}
+  E-mail: {owner_email}
+{DIV}""")
+    prompt("Enter to return")
+
+
+# ─────────────────────────────────────────────
 #  Dispatch table
 # ─────────────────────────────────────────────
 
@@ -193,6 +332,10 @@ HANDLERS = {
     5: handle_update_status,
     6: handle_update_prices,
     7: handle_update_field,
+    8: handle_find_property,
+    9: handle_find_property_by_neighborhood,
+    10: handle_show_avaliable_properties,
+    11: handle_find_owner,
 }
 
 # ─────────────────────────────────────────────
@@ -204,13 +347,13 @@ def main() -> None:
     while True:
         print(MENU)
         try:
-            choice = int(input("\n  Select an option: ").strip())
+            choice = prompt_int("Select an option: ")
         except ValueError:
             err("Numbers only. Try again.")
             continue
 
         if choice == 0:
-            print(f"\n{DIVIDER}\n  Goodbye.\n{DIVIDER}\n")
+            print(f"\n{DIV}\n  Goodbye.\n{DIV}\n")
             break
 
         handler = HANDLERS.get(choice)

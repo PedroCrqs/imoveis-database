@@ -19,7 +19,7 @@ IMOVEIS_UPDATABLE = {
     "ProprietarioID",
 }
 
-VALID_STATUS = {"Disponível", "Vendido", "Alugado", "Retirado de Venda"}
+VALID_STATUS = ["Disponível", "Vendido", "Alugado", "Retirado de Venda"]
 
 
 # ─────────────────────────────────────────────
@@ -62,6 +62,8 @@ def add_property(
     price: float,
     condo_fee: float,
     tax: float,
+    rooms: int,
+    park: int,
     size: int,
     sun: str,
     neighborhood_id: int,
@@ -71,9 +73,9 @@ def add_property(
 ) -> int:
     query = """
         INSERT INTO Imoveis (
-            Tipologia, ProprietarioID, Valor, ValorCondominio, IPTU,
+            Tipologia, Quartos, Vagas, ProprietarioID, Valor, ValorCondominio, IPTU,
             Metragem, Sol, BairroID, CondominioID, Endereco, Descricao
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA foreign_keys = ON;")
@@ -81,6 +83,8 @@ def add_property(
             query,
             (
                 tipologia,
+                rooms,
+                park,
                 owner_id,
                 price,
                 condo_fee,
@@ -97,7 +101,7 @@ def add_property(
         return cursor.lastrowid
 
 
-def add_photos(folder_path: str, imovel_id: int) -> list[int]:
+def add_photos(folder_path: str, property_id: int) -> list[int]:
     """
     Lê todos os arquivos .jpg/.jpeg/.png da pasta.
     O arquivo com stem '0' é marcado como capa (Principal = 1).
@@ -124,7 +128,7 @@ def add_photos(folder_path: str, imovel_id: int) -> list[int]:
         conn.execute("PRAGMA foreign_keys = ON;")
         for photo in photos:
             is_cover = photo.stem == "0"
-            cursor = conn.execute(query, (imovel_id, str(photo), is_cover))
+            cursor = conn.execute(query, (property_id, str(photo), is_cover))
             inserted_ids.append(cursor.lastrowid)
         conn.commit()
 
@@ -136,7 +140,7 @@ def add_photos(folder_path: str, imovel_id: int) -> list[int]:
 # ─────────────────────────────────────────────
 
 
-def update_status(imovel_id: int, status: str) -> None:
+def update_status(property_id: int, status: str) -> None:
     """Marca o imóvel como Vendido, Alugado, etc."""
     if status not in VALID_STATUS:
         raise ValueError(f"Invalid status: '{status}'")
@@ -151,15 +155,15 @@ def update_status(imovel_id: int, status: str) -> None:
     """
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA foreign_keys = ON;")
-        cursor = conn.execute(query, (status, set_date, imovel_id))
+        cursor = conn.execute(query, (status, set_date, property_id))
         conn.commit()
 
     if cursor.rowcount == 0:
-        raise LookupError(f"No property found with ID {imovel_id}.")
+        raise LookupError(f"No property found with ID {property_id}.")
 
 
 def update_prices(
-    imovel_id: int,
+    property_id: int,
     price: float | None = None,
     condo_fee: float | None = None,
     tax: float | None = None,
@@ -180,7 +184,7 @@ def update_prices(
     if not fields:
         raise ValueError("At least one price field must be provided.")
 
-    values.append(imovel_id)
+    values.append(property_id)
     query = f"UPDATE Imoveis SET {', '.join(fields)} WHERE ImovelID = ?"
 
     with sqlite3.connect(DB_PATH) as conn:
@@ -188,10 +192,10 @@ def update_prices(
         conn.commit()
 
     if cursor.rowcount == 0:
-        raise LookupError(f"No property found with ID {imovel_id}.")
+        raise LookupError(f"No property found with ID {property_id}.")
 
 
-def update_field(imovel_id: int, field: str, value: str) -> None:
+def update_field(property_id: int, field: str, value: str) -> None:
     """
     Correção pontual de qualquer campo permitido.
     'field' é validado contra whitelist — nunca interpolado direto da UI.
@@ -203,8 +207,72 @@ def update_field(imovel_id: int, field: str, value: str) -> None:
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA foreign_keys = ON;")
-        cursor = conn.execute(query, (value, imovel_id))
+        cursor = conn.execute(query, (value, property_id))
         conn.commit()
 
     if cursor.rowcount == 0:
-        raise LookupError(f"No property found with ID {imovel_id}.")
+        raise LookupError(f"No property found with ID {property_id}.")
+
+
+# ─────────────────────────────────────────────
+#  READ
+# ─────────────────────────────────────────────
+
+
+def get_property(property_id: int) -> tuple[sqlite3.Row]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        query = "SELECT * FROM Imoveis WHERE ImovelID = ?"
+        cursor = conn.execute(query, (property_id,))
+        return cursor.fetchone()
+
+
+def get_avaliable_properties() -> list[sqlite3.Row]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        query = "SELECT * FROM Imoveis WHERE ImovelStatus = 'Disponível'"
+        cursor = conn.execute(query)
+        return cursor.fetchall()
+
+
+def get_property_by_neighborhood(neighborhood_id: int) -> list[sqlite3.Row]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        query = "SELECT * FROM Imoveis WHERE BairroID = ?"
+        cursor = conn.execute(query, (neighborhood_id,))
+        return cursor.fetchall()
+
+
+def get_owner(owner_id: int) -> sqlite3.Row:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        query = "SELECT * FROM Proprietarios WHERE ProprietarioID = ?"
+        cursor = conn.execute(query, (owner_id,))
+        return cursor.fetchone()
+
+
+def get_condo_name(condo_id: int | None) -> str | None:
+    if condo_id is None:
+        return None
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        query = "SELECT Nome FROM Condominios WHERE CondominioID = ?"
+        cursor = conn.execute(query, (condo_id,))
+        row = cursor.fetchone()
+        return row["Nome"] if row else None
+
+
+# ─────────────────────────────────────────────
+#  PHOTOS
+# ─────────────────────────────────────────────
+
+
+def get_folder_path(property_id: int) -> str | None:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        query = "SELECT CaminhoArquivo FROM Fotos WHERE ImovelID = ? LIMIT 1"
+        cursor = conn.execute(query, (property_id,))
+        row = cursor.fetchone()
+        if row:
+            return str(Path(row["CaminhoArquivo"]).parent)
+        return None

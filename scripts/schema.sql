@@ -26,22 +26,24 @@ CREATE TABLE IF NOT EXISTS Condominios (
 
 CREATE TABLE IF NOT EXISTS Imoveis (
     ImovelID        INTEGER PRIMARY KEY AUTOINCREMENT,
+    CondominioID    INTEGER NULL,
     Tipologia       TEXT NOT NULL CHECK (Tipologia IN ('Apartamento', 'Casa', 'Cobertura', 'Studio')),
-    ProprietarioID  INTEGER NOT NULL,
+    Quartos         INTEGER NOT NULL,
+    Vagas           INTEGER,
     Valor           REAL NOT NULL,
-    ValorCondominio REAL,
-    IPTU            REAL,
-    Metragem        INTEGER NOT NULL,
+    ValorCondominio REAL NOT NULL,
+    IPTU            REAL NOT NULL,
+    Metragem        REAL NOT NULL,
     Sol             TEXT CHECK (Sol IN ('Manhã', 'Tarde', 'Passante')),
     BairroID        INTEGER NOT NULL,
-    CondominioID    INTEGER,
     Endereco        TEXT NOT NULL,
-    Descricao       TEXT,
+    Descricao       TEXT NOT NULL,
     ImovelStatus    TEXT NOT NULL DEFAULT 'Disponível' CHECK (ImovelStatus IN (
         'Disponível', 'Vendido', 'Alugado', 'Retirado de Venda'
     )),
     DataVenda       DATETIME,
     DataCadastro    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ProprietarioID  INTEGER NOT NULL,
     FOREIGN KEY (BairroID)     REFERENCES Bairros (BairroID),
     FOREIGN KEY (CondominioID) REFERENCES Condominios (CondominioID),
     FOREIGN KEY (ProprietarioID) REFERENCES Proprietarios (ProprietarioID)
@@ -55,3 +57,6 @@ CREATE TABLE IF NOT EXISTS Fotos (
     DataCadastro   DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ImovelID) REFERENCES Imoveis (ImovelID) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_imoveis_bairro ON Imoveis(BairroID);
+CREATE INDEX IF NOT EXISTS idx_imoveis_status ON Imoveis(ImovelStatus);

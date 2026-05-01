@@ -1,5 +1,5 @@
-from database import DB_PATH
 import sqlite3
+from database import DB_PATH
 
 
 def populate_bairros() -> None:
