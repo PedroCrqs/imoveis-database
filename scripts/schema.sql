@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS Proprietarios (
     ProprietarioID INTEGER PRIMARY KEY AUTOINCREMENT,
     Nome           TEXT NOT NULL,
     Telefone       TEXT NOT NULL,
-    Email          TEXT CHECK (Email LIKE '%@%.%')
+    Email          TEXT NULL CHECK (Email LIKE '%@%.%')
 );
 
 CREATE TABLE IF NOT EXISTS Bairros (
