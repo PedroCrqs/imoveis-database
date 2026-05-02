@@ -7,6 +7,19 @@
 Todas as mudanças relevantes deste projeto serão documentadas aqui.  
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+### [1.2.0] — 2026-05-02
+
+#### Adicionado
+
+- **Incluído no MENU principal**: Função para pesquisar imóveis disponíveis com base no ID do condomínio. Alteração abrange novas funções em main.py e repository.py para pesquisa de imóveis e captura dos nomes dos condomínios.
+
+#### Melhorado
+
+- **schema.sql**: Atualização do schema SQL para remover verificação de e-mail. Essa verificação é desnecessária, visto que eu geralmente não recolho o e-mail do proprietário. Toda comunicação é feita via WhatsApp.
+- **Menu principal**: Agora, além do nome do Condomínio, o nome do Bairro também aparece nas interações visuais. Além disso, fiz algumas melhorias visuais do MENU para melhor simetria.
+
+---
+
 ### [1.1.0] — 2026-05-01
 
 #### Adicionado
@@ -52,6 +65,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [1.2.0] — 2026-05-02
+
+#### Added
+
+- **Included in the main MENU**: Function to search for available properties based on the condominium ID. The change includes new functions in main.py and repository.py for property search and capturing condominium names.
+
+#### Improved
+
+- **schema.sql**: Updated the SQL schema to remove email verification. This verification is necessary, as I generally don't collect the owner's email. All communication is done via WhatsApp.
+- **Main Menu**: Now, in addition to the Condominium name, the Neighborhood name also appears in the visual interactions. Furthermore, we made some visual improvements to the MENU for better symmetry.
 
 ---
 
