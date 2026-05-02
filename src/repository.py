@@ -243,6 +243,14 @@ def get_property_by_neighborhood(neighborhood_id: int) -> list[sqlite3.Row]:
         return cursor.fetchall()
 
 
+def get_property_by_condo(condo_id: int) -> list[sqlite3.Row]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        query = "SELECT * FROM Imoveis WHERE CondominioID = ?"
+        cursor = conn.execute(query, (condo_id,))
+        return cursor.fetchall()
+
+
 def get_owner(owner_id: int) -> sqlite3.Row:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
@@ -258,6 +266,17 @@ def get_condo_name(condo_id: int | None) -> str | None:
         conn.row_factory = sqlite3.Row
         query = "SELECT Nome FROM Condominios WHERE CondominioID = ?"
         cursor = conn.execute(query, (condo_id,))
+        row = cursor.fetchone()
+        return row["Nome"] if row else None
+
+
+def get_neighborhood_name(neighborhood_id: int | None) -> str | None:
+    if neighborhood_id is None:
+        return None
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        query = "SELECT Nome FROM Bairros WHERE BairroID = ?"
+        cursor = conn.execute(query, (neighborhood_id,))
         row = cursor.fetchone()
         return row["Nome"] if row else None
 

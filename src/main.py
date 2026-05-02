@@ -10,7 +10,9 @@ from repository import (
     get_property,
     get_avaliable_properties,
     get_property_by_neighborhood,
+    get_property_by_condo,
     get_condo_name,
+    get_neighborhood_name,
     get_owner,
     get_folder_path,
     VALID_STATUS,
@@ -107,6 +109,7 @@ MENU = """
   [9] Find a property by neighborhood
   [10] Show available properties
   [11] Show owner by ID
+  [12] Find a property by condominium
 {DIV}                       
   [0] Exit                  
 {DIV}""".format(DIV=DIV)
@@ -259,17 +262,21 @@ def handle_find_property() -> None:
     owner_name = owner["Nome"]
     owner_phone = owner["Telefone"]
     condo_id = prop["CondominioID"]
+    neighborhood_id = prop["BairroID"]
+    neighborhood_name = get_neighborhood_name(neighborhood_id)
     raw_condo_name = get_condo_name(condo_id)
     condo_name = display_na(raw_condo_name)
     status = prop["ImovelStatus"]
     folder_path = get_folder_path(property_id)
     menu = f"""
 {DIV}
-            {condo_name}
+  {condo_name} | {neighborhood_name}
 {DIV}
-  Tipo: {tipology}        Metragem: {m4}
-  Quartos: {rooms}        Status: {status}
-  Valor: {value}              
+  Tipo: {tipology}        
+  Quartos: {rooms}        
+  Valor: {value}
+  Metragem: {m4}
+  Status: {status}              
 {DIV}                       
   Proprietário: {owner_name}
   Telefone: {owner_phone}                 
@@ -292,6 +299,24 @@ def handle_find_property_by_neighborhood() -> None:
         condo_id = prop["CondominioID"]
         raw_condo_name = get_condo_name(condo_id)
         condo_name = display_na(raw_condo_name)
+        value = prop["Valor"]
+        tipology = prop["Tipologia"]
+        rooms = prop["Quartos"]
+        print(f"""
+{DIV}
+  ID:{prop_id} | {condo_name} | {tipology} | R$ {value} | {rooms}qts
+{DIV}""")
+    prompt("Enter to return")
+
+
+def handle_find_property_by_condo() -> None:
+    # Only avaliable properties
+    header("Find a property by Condominium")
+    condo_id = prompt_int("Condominium ID")
+    prop_list = get_property_by_condo(condo_id)
+    for prop in prop_list:
+        prop_id = prop["ImovelID"]
+        condo_name = get_condo_name(condo_id)
         value = prop["Valor"]
         tipology = prop["Tipologia"]
         rooms = prop["Quartos"]
@@ -352,6 +377,7 @@ HANDLERS = {
     9: handle_find_property_by_neighborhood,
     10: handle_show_avaliable_properties,
     11: handle_find_owner,
+    12: handle_find_property_by_condo,
 }
 
 # ─────────────────────────────────────────────
@@ -363,7 +389,7 @@ def main() -> None:
     while True:
         print(MENU)
         try:
-            choice = prompt_int("Select an option: ")
+            choice = prompt_int("Select an option")
         except ValueError:
             err("Numbers only. Try again.")
             continue
