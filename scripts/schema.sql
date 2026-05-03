@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS Imoveis (
     ValorCondominio REAL NOT NULL,
     IPTU            REAL NOT NULL,
     Metragem        REAL NOT NULL,
-    Sol             TEXT CHECK (Sol IN ('Manhã', 'Tarde', 'Passante')),
+    Sol TEXT CHECK (Sol IS NULL OR Sol IN ('Manhã', 'Tarde', 'Passante')),,
     BairroID        INTEGER NOT NULL,
     Endereco        TEXT NOT NULL,
     Descricao       TEXT NOT NULL,
