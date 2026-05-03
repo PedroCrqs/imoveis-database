@@ -33,6 +33,7 @@ import inspect
 import shutil
 
 OP_DIR_PATH = DRIVE_DIR / "Opções Diretas"
+DESKTOP_PATH = Path("/home/pedrocrqs/Desktop")
 
 # ─────────────────────────────────────────────
 #  Helpers
@@ -179,19 +180,20 @@ async def handle_add_property() -> None:
     size = prompt_int("Size (m2)")
     print(f"\n  Sun options: {SUN_OPTS_LABEL}")
     sun = SUN_OPTS[prompt_int("Sun exposure")]
-
-    # Pasta já existe em "Opções Diretas" com nome dinâmico
-    drive_folder_name = prompt(
-        "Folder name in 'Opções Diretas' (e.g. Apartamento - Acquabella)"
-    )
-    drive_path = OP_DIR_PATH / drive_folder_name
+    # A pasta inicial (criada manualmente) deve estar no Desktop
+    folder_name = prompt("Folder name")
+    folder_path = DESKTOP_PATH / folder_name
     public_link = prompt("Google Drive public link")
-
-    desc_file = drive_path / "Descrição.txt"
+    # Captura a descrição do imóvel
+    desc_file = folder_path / "Descrição.txt"
     if not desc_file.is_file():
-        raise FileNotFoundError(f"'Descrição.txt' not found in '{drive_path}'.")
+        raise FileNotFoundError(f"'Descrição.txt' not found in '{folder_path}'.")
     description = desc_file.read_text(encoding="utf-8").strip()
-
+    # Carrega a pasta inicial para o drive público
+    drive_path = OP_DIR_PATH / folder_name
+    shutil.copytree(str(folder_path), str(drive_path))
+    ok(f"Folder copied to '{OP_DIR_PATH}'.")
+    # Cadastra o imóvel já com as pastas configuradas
     imovel_id = add_property(
         tipologia,
         owner_id,
@@ -210,19 +212,20 @@ async def handle_add_property() -> None:
         public_link,
     )
     ok(f"Property added with ID {imovel_id}.")
-
-    # Copia pasta do Drive para local com nome padronizado
+    # Cria uma pasta local dentro de /data/imoveis
     local_folder = (
         Path(__file__).resolve().parent.parent
         / "data"
         / "imoveis"
         / f"imovel_{imovel_id}"
     )
-    shutil.copytree(str(drive_path), str(local_folder))
+    shutil.copytree(str(folder_path), str(local_folder))
     ok(f"Folder copied to '{local_folder}'.")
-
+    # Vincula as fotos à pasta local
     inserted = add_photos(str(local_folder), imovel_id)
     ok(f"{len(inserted)} photo(s) registered.")
+    # Apaga a pasta inicial. Desnecessária após esse ponto
+    shutil.rmtree(str(folder_path))
 
     await do_backup("upload")
 

@@ -9,6 +9,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [1.3.1] — 2026-05-03
+
+#### Corrigido
+
+- **Fluxo de cadastro de imóvel**: pasta local `imovel_{id}` agora é criada após `add_property` — garantindo que o ID existe antes de ser usado no nome da pasta
+- **Origem da pasta**: fluxo parte do Desktop (`~/Desktop/nome_pasta`), copia para "Opções Diretas" no Drive e para `data/imoveis/imovel_{id}`, depois apaga a pasta do Desktop
+
+---
+
 ### [1.3.0] — 2026-05-03
 
 #### Adicionado
@@ -86,6 +95,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [1.3.1] — 2026-05-03
+
+#### Fixed
+
+- **Property registration flow**: local folder `imovel_{id}` is now created after `add_property` — ensuring the ID exists before being used in the folder name
+- **Folder origin**: flow starts from Desktop (`~/Desktop/folder_name`), copies to "Opções Diretas" on Drive and to `data/imoveis/imovel_{id}`, then deletes the Desktop folder
 
 ---
 
