@@ -7,16 +7,40 @@
 Todas as mudanças relevantes deste projeto serão documentadas aqui.  
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+---
+
+### [1.3.0] — 2026-05-03
+
+#### Adicionado
+
+- **Sistema de backup bidirecional**: `do_backup("upload")` sincroniza banco e pasta `imoveis/` do local para o Drive; `do_backup("download")` faz o inverso. Sync incremental via hash MD5 — só copia arquivos novos ou modificados
+- **Sincronização automática de pastas**: `sync_folder` integrado ao `do_backup` — sem chamadas separadas no `main.py`
+- **Ciclo de vida do imóvel em "Opções Diretas"**: ao marcar imóvel como vendido/alugado/retirado, a pasta no Drive é removida automaticamente; ao retornar para "Disponível", é restaurada a partir da pasta local
+- **Arquivo oculto `.drive_folder_name.txt`**: salvo na pasta local do imóvel para permitir restauração da pasta no Drive com o nome original
+- **Colunas `CaminhoDrive` e `LinkPublico`** na tabela `Imoveis`: armazenam o path local da pasta no Drive e o link público para o navegador
+- **Atualização automática de `Descrição.txt`**: ao alterar preços via opção [6], os arquivos `Descrição.txt` local e do Drive são atualizados via regex com o padrão de formatação WhatsApp
+- **`DRIVE_DIR` centralizado em `database.py`**: elimina import circular entre `repository.py` e `backup.py`
+- **Triggers com `IF NOT EXISTS`**: `init_db` agora é idempotente para triggers
+
+#### Corrigido
+
+- Aliases redundantes `IMOVEIS_SRC`/`IMOVEIS_DST` removidos de `backup.py`
+- Função `rename_to_id` removida de `main.py` — era definida mas nunca usada
+- Condição de restauração de pasta no Drive corrigida — não depende mais de `drive_path` que pode apontar para path inexistente
+
+---
+
 ### [1.2.0] — 2026-05-02
 
 #### Adicionado
 
-- **Incluído no MENU principal**: Função para pesquisar imóveis disponíveis com base no ID do condomínio. Alteração abrange novas funções em main.py e repository.py para pesquisa de imóveis e captura dos nomes dos condomínios.
+- Busca de imóveis por condomínio (`[12] Find a property by condominium`)
+- `get_neighborhood_name` no repositório — nome do bairro exibido nas consultas
 
 #### Melhorado
 
-- **schema.sql**: Atualização do schema SQL para remover verificação de e-mail. Essa verificação é desnecessária, visto que eu geralmente não recolho o e-mail do proprietário. Toda comunicação é feita via WhatsApp.
-- **Menu principal**: Agora, além do nome do Condomínio, o nome do Bairro também aparece nas interações visuais. Além disso, fiz algumas melhorias visuais do MENU para melhor simetria.
+- `schema.sql`: remoção da validação de e-mail em `Proprietarios` — campo agora é `NULL`
+- Menu principal: exibe nome do bairro além do condomínio nas interações visuais
 
 ---
 
@@ -24,39 +48,36 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 #### Adicionado
 
-- **Padronização Automática de Pastas**: Nova lógica no `main.py` que move e renomeia automaticamente a pasta de fotos para `data/imoveis/imovel_{id}` após o cadastro bem-sucedido.
-- **Gestão de Caminhos Robustos**: Integração com `pathlib.Path.resolve()` para garantir que o script localize as pastas corretamente, independente do diretório de execução.
-- **Auditoria Automática**: Implementação de sistema de auditoria via **Triggers** no SQLite para rastrear mudanças críticas em `Valor` e `Status`[cite: 18].
-- **Persistência de Histórico**: Criação da tabela `Auditoria_Imoveis` para log de eventos de inserção e atualização[cite: 18].
-- **Validação de Dados**: Adição de constraint `CHECK` para garantir o formato correto de e-mail na tabela `Proprietarios`[cite: 18].
+- Padronização automática de pastas: move e renomeia para `data/imoveis/imovel_{id}` após cadastro
+- Auditoria automática via Triggers SQLite para `Valor` e `ImovelStatus`
+- Tabela `Auditoria_Imoveis` com log de inserções e atualizações
+- Índice `idx_auditoria_imovel` para performance de auditoria
 
 #### Melhorado
 
-- **Precisão Numérica**: Atualização do schema SQL para utilizar o tipo `REAL` em campos de valores e metragens[cite: 18].
-- **Integridade de Mídia**: Restrição `UNIQUE` aplicada ao `CaminhoArquivo` na tabela `Fotos` para evitar duplicidade[cite: 18].
-- **Performance**: Otimização de consultas através do índice `idx_auditoria_imovel`[cite: 18].
-- **CLI**: Melhoria no tratamento de exceções (erros de diretório e banco de dados) para uma navegação sem interrupções[cite: 17, 18].
+- Schema: tipo `REAL` em campos financeiros e de metragem
+- `CaminhoArquivo` em `Fotos` com constraint `UNIQUE`
+- Tratamento de exceções na CLI para erros de diretório e banco
 
 ---
 
-### [1.0.0] — 2025-05-01
+### [1.0.0] — 2026-05-01
 
 #### Adicionado
 
 - Schema SQLite com tabelas `Proprietarios`, `Bairros`, `Condominios`, `Imoveis`, `Fotos`
-- Índices em `BairroID` e `ImovelStatus` para performance de leitura
+- Índices em `BairroID` e `ImovelStatus`
 - CLI interativa com menu numerado e dispatch table
 - Cadastro de bairros, proprietários, condomínios e imóveis
-- Upload de fotos via pasta — arquivo `0.jpg` definido como capa automaticamente
-- Leitura de descrição a partir de `Descrição.txt` na pasta do imóvel
-- Atualização de status do imóvel (`Disponível`, `Vendido`, `Alugado`, `Retirado de Venda`)
-- `DataVenda` preenchida automaticamente ao marcar como `Vendido` ou `Alugado`
-- Atualização pontual de preços (`Valor`, `ValorCondominio`, `IPTU`)
+- Upload de fotos via pasta — `0.jpg` como capa automática
+- Leitura de descrição a partir de `Descrição.txt`
+- Atualização de status com preenchimento automático de `DataVenda`
+- Atualização pontual de preços
 - Correção de campos via whitelist — proteção contra SQL injection
-- Consulta de imóvel por ID com acesso à pasta de fotos via `webbrowser`
-- Consulta de imóveis por bairro e listagem de disponíveis
+- Consulta de imóvel por ID com acesso à pasta via `webbrowser`
+- Consulta por bairro e listagem de disponíveis
 - Consulta de proprietário por ID
-- Separação clara entre camada de UI (`main.py`) e camada de dados (`repository.py`)
+- Separação clara entre `main.py` (UI) e `repository.py` (dados)
 - `seed.py` com bairros do Rio de Janeiro pré-cadastrados
 
 ---
@@ -68,16 +89,38 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+### [1.3.0] — 2026-05-03
+
+#### Added
+
+- **Bidirectional backup system**: `do_backup("upload")` syncs database and `imoveis/` folder from local to Drive; `do_backup("download")` does the reverse. Incremental sync via MD5 hash — only copies new or modified files
+- **Automatic folder sync**: `sync_folder` integrated into `do_backup` — no separate calls needed in `main.py`
+- **Property lifecycle in "Opções Diretas"**: when marked as sold/rented/withdrawn, Drive folder is automatically removed; when restored to "Disponível", it is recreated from local folder
+- **Hidden file `.drive_folder_name.txt`**: saved in local property folder to enable Drive folder restoration with original name
+- **Columns `CaminhoDrive` and `LinkPublico`** in `Imoveis` table: store the local Drive path and public browser link
+- **Automatic `Descrição.txt` update**: when prices are updated via option [6], both local and Drive `Descrição.txt` files are updated via regex matching WhatsApp formatting
+- **`DRIVE_DIR` centralized in `database.py`**: eliminates circular import between `repository.py` and `backup.py`
+- **Triggers with `IF NOT EXISTS`**: `init_db` is now idempotent for triggers
+
+#### Fixed
+
+- Redundant `IMOVEIS_SRC`/`IMOVEIS_DST` aliases removed from `backup.py`
+- Unused `rename_to_id` function removed from `main.py`
+- Drive folder restoration condition fixed — no longer depends on `drive_path` that may point to a deleted path
+
+---
+
 ### [1.2.0] — 2026-05-02
 
 #### Added
 
-- **Included in the main MENU**: Function to search for available properties based on the condominium ID. The change includes new functions in main.py and repository.py for property search and capturing condominium names.
+- Property search by condominium (`[12] Find a property by condominium`)
+- `get_neighborhood_name` in repository — neighborhood name displayed in queries
 
 #### Improved
 
-- **schema.sql**: Updated the SQL schema to remove email verification. This verification is necessary, as I generally don't collect the owner's email. All communication is done via WhatsApp.
-- **Main Menu**: Now, in addition to the Condominium name, the Neighborhood name also appears in the visual interactions. Furthermore, we made some visual improvements to the MENU for better symmetry.
+- `schema.sql`: removed email validation in `Proprietarios` — field is now `NULL`
+- Main menu: neighborhood name shown alongside condo name in visual interactions
 
 ---
 
@@ -85,14 +128,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 #### Added
 
-- **Automated Folder Standardization**: Logic to move and rename photo folders to `data/imoveis/imovel_{id}` upon registration.
-- **Robust Path Management**: Use of absolute path anchoring with `pathlib` to prevent environment-related errors.
-- **Automated Auditing**: SQLite **Triggers** for tracking `Price` and `Status` modifications[cite: 18].
+- Automated folder standardization: moves and renames to `data/imoveis/imovel_{id}` after registration
+- Automatic auditing via SQLite Triggers for `Valor` and `ImovelStatus`
+- `Auditoria_Imoveis` table for insertion and update logs
+- `idx_auditoria_imovel` index for audit query performance
 
 #### Improved
 
-- **SQL Schema**: Switched to `REAL` types for financial accuracy[cite: 18].
-- **CLI Robustness**: Better exception handling for directory and database operations[cite: 17, 18].
+- Schema: `REAL` type for financial and area fields
+- `UNIQUE` constraint on `CaminhoArquivo` in `Fotos`
+- Better exception handling in CLI for directory and database errors
 
 ---
 
@@ -101,17 +146,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 #### Added
 
 - SQLite schema with tables `Proprietarios`, `Bairros`, `Condominios`, `Imoveis`, `Fotos`
-- Indexes on `BairroID` and `ImovelStatus` for read performance
+- Indexes on `BairroID` and `ImovelStatus`
 - Interactive CLI with numbered menu and dispatch table
 - Registration of neighborhoods, owners, condos, and properties
-- Photo upload via folder — file named `0.jpg` is automatically set as cover
-- Description loaded from `Descrição.txt` inside the property folder
-- Property status updates (`Disponível`, `Vendido`, `Alugado`, `Retirado de Venda`)
-- `DataVenda` auto-filled when status is set to `Vendido` or `Alugado`
-- Targeted price updates (`Valor`, `ValorCondominio`, `IPTU`)
+- Photo upload via folder — `0.jpg` automatically set as cover
+- Description loaded from `Descrição.txt`
+- Status updates with automatic `DataVenda` fill
+- Targeted price updates
 - Field correction via whitelist — SQL injection protection
-- Property lookup by ID with photo folder access via `webbrowser`
-- Property lookup by neighborhood and available listings view
+- Property lookup by ID with folder access via `webbrowser`
+- Lookup by neighborhood and available listings view
 - Owner lookup by ID
-- Clear separation between UI layer (`main.py`) and data layer (`repository.py`)
+- Clear separation between `main.py` (UI) and `repository.py` (data)
 - `seed.py` with pre-loaded Rio de Janeiro neighborhoods

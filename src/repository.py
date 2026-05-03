@@ -4,7 +4,6 @@ import sqlite3
 
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
-# Campos permitidos para update genérico — whitelist contra SQL injection
 IMOVEIS_UPDATABLE = {
     "Tipologia",
     "Valor",
@@ -17,6 +16,8 @@ IMOVEIS_UPDATABLE = {
     "BairroID",
     "CondominioID",
     "ProprietarioID",
+    "LinkPublico",
+    "CaminhoDrive",
 }
 
 VALID_STATUS = ["Disponível", "Vendido", "Alugado", "Retirado de Venda"]
@@ -67,15 +68,18 @@ def add_property(
     size: int,
     sun: str,
     neighborhood_id: int,
-    condo_id: int,
+    condo_id: int | None,
     address: str,
     description: str,
+    drive_folder: str,
+    public_link: str,
 ) -> int:
     query = """
         INSERT INTO Imoveis (
             Tipologia, Quartos, Vagas, ProprietarioID, Valor, ValorCondominio, IPTU,
-            Metragem, Sol, BairroID, CondominioID, Endereco, Descricao
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            Metragem, Sol, BairroID, CondominioID, Endereco, Descricao,
+            LinkPublico, CaminhoDrive
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA foreign_keys = ON;")
@@ -95,6 +99,8 @@ def add_property(
                 condo_id,
                 address,
                 description,
+                drive_folder,
+                public_link,
             ),
         )
         conn.commit()
@@ -103,9 +109,8 @@ def add_property(
 
 def add_photos(folder_path: str, property_id: int) -> list[int]:
     """
-    Lê todos os arquivos .jpg/.jpeg/.png da pasta.
-    O arquivo com stem '0' é marcado como capa (Principal = 1).
-    Retorna lista de FotoIDs inseridos.
+    Lê todos os .jpg/.jpeg/.png da pasta.
+    Arquivo com stem '0' é marcado como capa.
     """
     folder = Path(folder_path)
 
@@ -141,11 +146,9 @@ def add_photos(folder_path: str, property_id: int) -> list[int]:
 
 
 def update_status(property_id: int, status: str) -> None:
-    """Marca o imóvel como Vendido, Alugado, etc."""
     if status not in VALID_STATUS:
         raise ValueError(f"Invalid status: '{status}'")
 
-    # DataVenda só é preenchida quando o negócio é fechado
     set_date = status in {"Vendido", "Alugado"}
     query = """
         UPDATE Imoveis
@@ -167,8 +170,8 @@ def update_prices(
     price: float | None = None,
     condo_fee: float | None = None,
     tax: float | None = None,
+    new_description: str | None = None,
 ) -> None:
-    """Atualiza Valor, ValorCondominio e/ou IPTU. Passa None para manter o valor atual."""
     fields, values = [], []
 
     if price is not None:
@@ -180,6 +183,9 @@ def update_prices(
     if tax is not None:
         fields.append("IPTU = ?")
         values.append(tax)
+    if new_description is not None:
+        fields.append("Descricao = ?")
+        values.append(new_description)
 
     if not fields:
         raise ValueError("At least one price field must be provided.")
@@ -196,10 +202,6 @@ def update_prices(
 
 
 def update_field(property_id: int, field: str, value: str) -> None:
-    """
-    Correção pontual de qualquer campo permitido.
-    'field' é validado contra whitelist — nunca interpolado direto da UI.
-    """
     if field not in IMOVEIS_UPDATABLE:
         raise ValueError(f"Field not updatable: '{field}'")
 
@@ -219,43 +221,46 @@ def update_field(property_id: int, field: str, value: str) -> None:
 # ─────────────────────────────────────────────
 
 
-def get_property(property_id: int) -> tuple[sqlite3.Row]:
+def get_property(property_id: int) -> sqlite3.Row | None:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        query = "SELECT * FROM Imoveis WHERE ImovelID = ?"
-        cursor = conn.execute(query, (property_id,))
+        cursor = conn.execute(
+            "SELECT * FROM Imoveis WHERE ImovelID = ?", (property_id,)
+        )
         return cursor.fetchone()
 
 
-def get_avaliable_properties() -> list[sqlite3.Row]:
+def get_available_properties() -> list[sqlite3.Row]:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        query = "SELECT * FROM Imoveis WHERE ImovelStatus = 'Disponível'"
-        cursor = conn.execute(query)
+        cursor = conn.execute("SELECT * FROM Imoveis WHERE ImovelStatus = 'Disponível'")
         return cursor.fetchall()
 
 
 def get_property_by_neighborhood(neighborhood_id: int) -> list[sqlite3.Row]:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        query = "SELECT * FROM Imoveis WHERE BairroID = ?"
-        cursor = conn.execute(query, (neighborhood_id,))
+        cursor = conn.execute(
+            "SELECT * FROM Imoveis WHERE BairroID = ?", (neighborhood_id,)
+        )
         return cursor.fetchall()
 
 
 def get_property_by_condo(condo_id: int) -> list[sqlite3.Row]:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        query = "SELECT * FROM Imoveis WHERE CondominioID = ?"
-        cursor = conn.execute(query, (condo_id,))
+        cursor = conn.execute(
+            "SELECT * FROM Imoveis WHERE CondominioID = ?", (condo_id,)
+        )
         return cursor.fetchall()
 
 
-def get_owner(owner_id: int) -> sqlite3.Row:
+def get_owner(owner_id: int) -> sqlite3.Row | None:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        query = "SELECT * FROM Proprietarios WHERE ProprietarioID = ?"
-        cursor = conn.execute(query, (owner_id,))
+        cursor = conn.execute(
+            "SELECT * FROM Proprietarios WHERE ProprietarioID = ?", (owner_id,)
+        )
         return cursor.fetchone()
 
 
@@ -264,9 +269,9 @@ def get_condo_name(condo_id: int | None) -> str | None:
         return None
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        query = "SELECT Nome FROM Condominios WHERE CondominioID = ?"
-        cursor = conn.execute(query, (condo_id,))
-        row = cursor.fetchone()
+        row = conn.execute(
+            "SELECT Nome FROM Condominios WHERE CondominioID = ?", (condo_id,)
+        ).fetchone()
         return row["Nome"] if row else None
 
 
@@ -275,23 +280,45 @@ def get_neighborhood_name(neighborhood_id: int | None) -> str | None:
         return None
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        query = "SELECT Nome FROM Bairros WHERE BairroID = ?"
-        cursor = conn.execute(query, (neighborhood_id,))
-        row = cursor.fetchone()
+        row = conn.execute(
+            "SELECT Nome FROM Bairros WHERE BairroID = ?", (neighborhood_id,)
+        ).fetchone()
         return row["Nome"] if row else None
 
 
 # ─────────────────────────────────────────────
-#  PHOTOS
+#  PATHS
 # ─────────────────────────────────────────────
-
-
-def get_folder_path(property_id: int) -> str | None:
+def get_folder_path(property_id: int) -> Path | None:
+    """Retorna o Path da pasta local do imóvel."""
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        query = "SELECT CaminhoArquivo FROM Fotos WHERE ImovelID = ? LIMIT 1"
-        cursor = conn.execute(query, (property_id,))
-        row = cursor.fetchone()
+        row = conn.execute(
+            "SELECT CaminhoArquivo FROM Fotos WHERE ImovelID = ? LIMIT 1",
+            (property_id,),
+        ).fetchone()
         if row:
-            return str(Path(row["CaminhoArquivo"]).parent)
+            return Path(row["CaminhoArquivo"]).parent
         return None
+
+
+def get_drive_path(property_id: int) -> Path | None:
+    """Retorna o Path da pasta do imóvel no Drive."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT CaminhoDrive FROM Imoveis WHERE ImovelID = ?", (property_id,)
+        ).fetchone()
+        if row and row["CaminhoDrive"]:
+            return Path(row["CaminhoDrive"])
+        return None
+
+
+def get_public_link(property_id: int) -> str | None:
+    """Retorna o link público do Drive (URL, não path)."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT LinkPublico FROM Imoveis WHERE ImovelID = ?", (property_id,)
+        ).fetchone()
+        return row["LinkPublico"] if row else None

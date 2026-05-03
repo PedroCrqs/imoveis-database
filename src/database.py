@@ -5,6 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = BASE_DIR / "data"
 SCRIPTS_PATH = BASE_DIR / "scripts" / "schema.sql"
 DB_PATH = DATA_PATH / "imoveis.db"
+DRIVE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "majesto-drive"
 
 
 def init_db():
@@ -15,7 +16,7 @@ def init_db():
 
         with sqlite3.connect(DB_PATH) as conn:
             conn.executescript(sql_script)
-            print("✔️ Database structure sucessfully created!")
+            print("✔️ Database structure successfully created!")
 
     except FileNotFoundError:
         print(f"❌ Error: File {SCRIPTS_PATH} not found.")

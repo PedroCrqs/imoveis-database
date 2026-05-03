@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS Imoveis (
     DataVenda       DATETIME,
     DataCadastro    DATETIME DEFAULT CURRENT_TIMESTAMP,
     ProprietarioID  INTEGER NOT NULL,
+    CaminhoDrive TEXT,
+    LinkPublico TEXT,
     FOREIGN KEY (BairroID)     REFERENCES Bairros (BairroID),
     FOREIGN KEY (CondominioID) REFERENCES Condominios (CondominioID),
     FOREIGN KEY (ProprietarioID) REFERENCES Proprietarios (ProprietarioID)
@@ -71,6 +73,7 @@ CREATE TABLE IF NOT EXISTS Auditoria_Imoveis (
 -- TRIGGERS
 
 -- 1. Registro de Inclusão
+DROP TRIGGER IF EXISTS log_imovel_insert;
 CREATE TRIGGER log_imovel_insert
 AFTER INSERT ON Imoveis
 BEGIN
@@ -79,6 +82,7 @@ BEGIN
 END;
 
 -- 2. Registro Exato de Status
+DROP TRIGGER IF EXISTS log_imovel_update_status;
 CREATE TRIGGER log_imovel_update_status
 AFTER UPDATE OF ImovelStatus ON Imoveis
 WHEN OLD.ImovelStatus <> NEW.ImovelStatus
@@ -88,6 +92,7 @@ BEGIN
 END;
 
 -- 3. Registro Exato de Preço (Fundamental para análise estratégica)
+DROP TRIGGER IF EXISTS log_imovel_update_valor;
 CREATE TRIGGER log_imovel_update_valor
 AFTER UPDATE OF Valor ON Imoveis
 WHEN OLD.Valor <> NEW.Valor

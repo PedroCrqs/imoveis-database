@@ -47,25 +47,27 @@ python src/main.py
 
 ### Funcionalidades
 
-| Opção | Função                     |
-| ----- | -------------------------- |
-| 1     | Cadastrar bairro           |
-| 2     | Cadastrar proprietário     |
-| 3     | Cadastrar condomínio       |
-| 4     | Cadastrar imóvel           |
-| 5     | Atualizar status do imóvel |
-| 6     | Atualizar preços           |
-| 7     | Corrigir um campo          |
-| 8     | Buscar imóvel por ID       |
-| 9     | Buscar imóveis por bairro  |
-| 10    | Listar imóveis disponíveis |
-| 11    | Buscar proprietário por ID |
+| Opção | Função                        |
+| ----- | ----------------------------- |
+| 1     | Cadastrar bairro              |
+| 2     | Cadastrar proprietário        |
+| 3     | Cadastrar condomínio          |
+| 4     | Cadastrar imóvel              |
+| 5     | Atualizar status do imóvel    |
+| 6     | Atualizar preços              |
+| 7     | Corrigir um campo             |
+| 8     | Buscar imóvel por ID          |
+| 9     | Buscar imóveis por bairro     |
+| 10    | Listar imóveis disponíveis    |
+| 11    | Buscar proprietário por ID    |
+| 12    | Buscar imóveis por condomínio |
 
 ### Convenções
 
-- **Fotos:** coloque todas as imagens `.jpg`/`.jpeg`/`.png` na pasta do imóvel. A foto de capa deve se chamar `0` (ex: `0.jpg`).
-- **Descrição:** arquivo `Descrição.txt` na mesma pasta das fotos. Suporta formatação WhatsApp (`*negrito*`, `_itálico_`).
+- **Fotos:** coloque todas as imagens `.jpg`/`.jpeg`/`.png` na pasta do imóvel em "Opções Diretas". A foto de capa deve se chamar `0` (ex: `0.jpg`).
+- **Descrição:** arquivo `Descrição.txt` na mesma pasta das fotos. Suporta formatação WhatsApp (`*negrito*`, `_itálico_`). Atualizado automaticamente ao alterar preços.
 - **Status do imóvel:** `Disponível` | `Vendido` | `Alugado` | `Retirado de Venda`
+- **Backup:** ao abrir, sincroniza Drive → local. Ao operar, sincroniza local → Drive. Incremental por hash MD5.
 
 ### Tecnologias
 
@@ -73,6 +75,8 @@ python src/main.py
 - SQLite3
 - pathlib
 - webbrowser
+- asyncio
+- hashlib
 
 ### Diferenciais Técnicos
 
@@ -138,12 +142,14 @@ python src/main.py
 | 9      | Find properties by neighborhood |
 | 10     | Show available properties       |
 | 11     | Find owner by ID                |
+| 12     | Find properties by condominium  |
 
 ### Conventions
 
-- **Photos:** place all `.jpg`/`.jpeg`/`.png` images in the property folder. The cover photo must be named `0` (e.g. `0.jpg`).
-- **Description:** `Descrição.txt` file in the same folder as photos. Supports WhatsApp formatting (`*bold*`, `_italic_`).
+- **Photos:** place all `.jpg`/`.jpeg`/`.png` images in the property folder inside "Opções Diretas". Cover photo must be named `0` (e.g. `0.jpg`).
+- **Description:** `Descrição.txt` in the same folder as photos. Supports WhatsApp formatting (`*bold*`, `_italic_`). Auto-updated when prices change.
 - **Property status:** `Disponível` | `Vendido` | `Alugado` | `Retirado de Venda`
+- **Backup:** on open, syncs Drive → local. On every operation, syncs local → Drive. Incremental via MD5 hash.
 
 ### Stack
 
@@ -151,6 +157,8 @@ python src/main.py
 - SQLite3
 - pathlib
 - webbrowser
+- asyncio
+- hashlib
 
 ### Key Features
 
