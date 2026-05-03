@@ -184,15 +184,18 @@ async def handle_add_property() -> None:
     folder_name = prompt("Folder name")
     folder_path = DESKTOP_PATH / folder_name
     public_link = prompt("Google Drive public link")
-    # Captura a descrição do imóvel
+    # Captura a descrição do imóvel a partir do Desktop
     desc_file = folder_path / "Descrição.txt"
     if not desc_file.is_file():
         raise FileNotFoundError(f"'Descrição.txt' not found in '{folder_path}'.")
     description = desc_file.read_text(encoding="utf-8").strip()
-    # Carrega a pasta inicial para o drive público
+    # Carrega a pasta inicial para o drive público (se ainda não existir)
     drive_path = OP_DIR_PATH / folder_name
-    shutil.copytree(str(folder_path), str(drive_path))
-    ok(f"Folder copied to '{OP_DIR_PATH}'.")
+    if drive_path.exists():
+        ok(f"Drive folder '{folder_name}' already exists — keeping it.")
+    else:
+        shutil.copytree(str(folder_path), str(drive_path))
+        ok(f"Folder copied to '{OP_DIR_PATH}'.")
     # Cadastra o imóvel já com as pastas configuradas
     imovel_id = add_property(
         tipologia,
