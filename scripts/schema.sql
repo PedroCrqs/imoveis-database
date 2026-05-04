@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS Imoveis (
     ValorCondominio REAL NOT NULL,
     IPTU            REAL NOT NULL,
     Metragem        REAL NOT NULL,
-    Sol TEXT CHECK (Sol IS NULL OR Sol IN ('Manhã', 'Tarde', 'Passante')),,
+    Sol             TEXT CHECK (Sol IS NULL OR Sol IN ('Manhã', 'Tarde', 'Passante')),
     BairroID        INTEGER NOT NULL,
     Endereco        TEXT NOT NULL,
     Descricao       TEXT NOT NULL,
@@ -44,10 +44,10 @@ CREATE TABLE IF NOT EXISTS Imoveis (
     DataVenda       DATETIME,
     DataCadastro    DATETIME DEFAULT CURRENT_TIMESTAMP,
     ProprietarioID  INTEGER NOT NULL,
-    CaminhoDrive TEXT,
-    LinkPublico TEXT,
-    FOREIGN KEY (BairroID)     REFERENCES Bairros (BairroID),
-    FOREIGN KEY (CondominioID) REFERENCES Condominios (CondominioID),
+    CaminhoDrive    TEXT,
+    LinkPublico     TEXT,
+    FOREIGN KEY (BairroID)       REFERENCES Bairros (BairroID),
+    FOREIGN KEY (CondominioID)   REFERENCES Condominios (CondominioID),
     FOREIGN KEY (ProprietarioID) REFERENCES Proprietarios (ProprietarioID)
 );
 
@@ -61,16 +61,27 @@ CREATE TABLE IF NOT EXISTS Fotos (
 );
 
 CREATE TABLE IF NOT EXISTS Auditoria_Imoveis (
-    LogID INTEGER PRIMARY KEY AUTOINCREMENT,
-    ImovelID INTEGER NOT NULL,
-    Operacao TEXT NOT NULL,
+    LogID          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ImovelID       INTEGER NOT NULL,
+    Operacao       TEXT NOT NULL,
     ColunaAlterada TEXT,
-    ValorAntigo TEXT,
-    ValorNovo TEXT,
-    DataHora DATETIME DEFAULT CURRENT_TIMESTAMP
+    ValorAntigo    TEXT,
+    ValorNovo      TEXT,
+    DataHora       DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- TRIGGERS
+-- Controle de anúncios disparados por dia (usado pelo scheduler de WhatsApp).
+-- Garante que nenhuma instância (account1/2/3) dispare o mesmo imóvel no mesmo dia.
+-- A PRIMARY KEY composta em (ImovelID, reserved_at) é a trava atômica entre processos.
+CREATE TABLE IF NOT EXISTS Dispatched_Today (
+    ImovelID    INTEGER NOT NULL,
+    Instance    TEXT    NOT NULL CHECK (Instance IN ('account1', 'account2', 'account3')),
+    Reserved_At TEXT    NOT NULL,   -- formato ISO date: YYYY-MM-DD (fuso America/Sao_Paulo)
+    PRIMARY KEY (ImovelID, Reserved_At),
+    FOREIGN KEY (ImovelID) REFERENCES Imoveis (ImovelID)
+);
+
+-- ─── TRIGGERS ────────────────────────────────────────────────────────────────
 
 -- 1. Registro de Inclusão
 DROP TRIGGER IF EXISTS log_imovel_insert;
@@ -91,7 +102,7 @@ BEGIN
     VALUES (OLD.ImovelID, 'UPDATE', 'ImovelStatus', OLD.ImovelStatus, NEW.ImovelStatus);
 END;
 
--- 3. Registro Exato de Preço (Fundamental para análise estratégica)
+-- 3. Registro Exato de Preço
 DROP TRIGGER IF EXISTS log_imovel_update_valor;
 CREATE TRIGGER log_imovel_update_valor
 AFTER UPDATE OF Valor ON Imoveis
@@ -101,7 +112,10 @@ BEGIN
     VALUES (OLD.ImovelID, 'UPDATE', 'Valor', OLD.Valor, NEW.Valor);
 END;
 
--- Índices para Performance
-CREATE INDEX IF NOT EXISTS idx_imoveis_bairro ON Imoveis(BairroID);
-CREATE INDEX IF NOT EXISTS idx_imoveis_status ON Imoveis(ImovelStatus);
-CREATE INDEX IF NOT EXISTS idx_auditoria_imovel ON Auditoria_Imoveis(ImovelID);
+-- ─── ÍNDICES ──────────────────────────────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS idx_imoveis_bairro    ON Imoveis (BairroID);
+CREATE INDEX IF NOT EXISTS idx_imoveis_status    ON Imoveis (ImovelStatus);
+CREATE INDEX IF NOT EXISTS idx_auditoria_imovel  ON Auditoria_Imoveis (ImovelID);
+-- Acelera a consulta de disponibilidade feita pelo auto-scheduler a cada reset
+CREATE INDEX IF NOT EXISTS idx_dispatched_date   ON Dispatched_Today (Reserved_At);
