@@ -9,6 +9,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [1.4.0] — 2026-05-05
+
+#### Adicionado
+
+- **Integração com o robô wpp-scheduler**: Agora a database irá alimentar o ciclo de disparos automáticos de mensagens efetuados pelo robô wpp-scheduler. Para tanto, foram criadas duas novas tabelas para o imoveis.db: `Dispatch_Cicle` e `Dispatched_Today`. Sendo esta responsável por impedir que o robô dispare a mesma mensagem no mesmo dia (ainda que em diferentes instâncias) e aquela responsável pelo controle do ciclo de disparos do robô, fazendo com que ele só volte a disparar o mesmo imóvel quando todos os imóveis com status DISPONÍVEL da tabela `Imoveis`forem disparados, reiniciando o ciclo.
+
+#### Corrigido
+
+- Função `do_backup()` causando lentidão desnecessária no sistema efetuanco `sync_folder` desnecessáriamente mesmo quando a mudança é apenas no arquivo .db. A solução foi adicionar um segundo argumento booleano `sync=False` na função principal e adicionar um bloco `if` identado ao `do_backup("upload")` que só executa quando `sync == True`
+- A chamada `do_backup("upload", True)` só irá ocorrer em três momentos: 1º: ao adicionar um novo imóvel, 2º: ao trocar o preço de um imóvel, 3º: ao trocar o status do imóvel
+
+---
+
 ### [1.3.1] — 2026-05-03
 
 #### Corrigido
@@ -95,6 +108,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [1.4.0] — 2026-05-05
+
+#### Added
+
+- **Integration with the wpp-scheduler bot**: Now the database will feed the cycle of automatic occasional message dispatches by the wpp-scheduler robot. To this end, two new tables were created for imoveis.db: `Dispatch_Cicle` and `Dispatched_Today`. The latter is responsible for preventing the robot from dispatching the same message on the same day (even in different instances), and the former is responsible for controlling the robot's dispatch cycle, ensuring that it only dispatches the same property again when all properties with the AVAILABLE status in the `Imóveis` table have been dispatched, restarting the cycle.
+
+### Fixed
+
+- The `do_backup()` function causes unnecessary system slowdown by occasionally performing `sync_folder` even when the change is only in the .db file. The solution was to add a second boolean argument `sync=False` to the main function and add an `if` block identified with `do_backup("upload")` that is only executed when `sync == True`
+- The call `do_backup("upload", True)` will only occur in three moments: 1st: when adding a new property, 2nd: when changing the price of a property, 3rd: when changing the status of the property
 
 ---
 

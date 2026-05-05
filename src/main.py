@@ -230,7 +230,7 @@ async def handle_add_property() -> None:
     # Apaga a pasta inicial. Desnecessária após esse ponto
     shutil.rmtree(str(folder_path))
 
-    await do_backup("upload")
+    await do_backup("upload", True)
 
 
 # ─────────────────────────────────────────────
@@ -276,7 +276,7 @@ async def handle_update_status() -> None:
                 )
                 ok(f"Drive folder '{folder_name}' restored to 'Opções Diretas'.")
 
-    await do_backup("upload")
+    await do_backup("upload", True)
     ok(f"Property {property_id} marked as '{status}'.")
 
 
@@ -305,7 +305,7 @@ async def handle_update_prices() -> None:
         update_description_prices(drive_folder, price, condo_fee, tax)
 
     update_prices(imovel_id, price, condo_fee, tax, description)
-    await do_backup("upload")
+    await do_backup("upload", True)
     ok(f"Prices updated for property {imovel_id}.")
 
 

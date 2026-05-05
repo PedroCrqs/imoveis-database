@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS Proprietarios (
     ProprietarioID INTEGER PRIMARY KEY AUTOINCREMENT,
     Nome           TEXT NOT NULL,
     Telefone       TEXT NOT NULL,
-    Email          TEXT NULL 
+    Email          TEXT NULL
 );
 
 CREATE TABLE IF NOT EXISTS Bairros (
@@ -70,20 +70,32 @@ CREATE TABLE IF NOT EXISTS Auditoria_Imoveis (
     DataHora       DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Controle de anúncios disparados por dia (usado pelo scheduler de WhatsApp).
--- Garante que nenhuma instância (account1/2/3) dispare o mesmo imóvel no mesmo dia.
--- A PRIMARY KEY composta em (ImovelID, reserved_at) é a trava atômica entre processos.
+-- Deduplicação diária entre instâncias do wpp-scheduler.
+-- PRIMARY KEY (ImovelID, Reserved_At) garante atomicidade via INSERT OR IGNORE.
+-- Instance sem CHECK constraint — novas instâncias funcionam sem alterar o schema.
 CREATE TABLE IF NOT EXISTS Dispatched_Today (
     ImovelID    INTEGER NOT NULL,
-    Instance    TEXT    NOT NULL CHECK (Instance IN ('account1', 'account2', 'account3')),
-    Reserved_At TEXT    NOT NULL,   -- formato ISO date: YYYY-MM-DD (fuso America/Sao_Paulo)
+    Instance    TEXT    NOT NULL,
+    Reserved_At TEXT    NOT NULL,  -- YYYY-MM-DD (fuso America/Sao_Paulo)
     PRIMARY KEY (ImovelID, Reserved_At),
     FOREIGN KEY (ImovelID) REFERENCES Imoveis (ImovelID)
 );
 
--- ─── TRIGGERS ────────────────────────────────────────────────────────────────
+-- Progresso do ciclo de envio por instância.
+-- Um imóvel só pode ser reenviado pela mesma instância após todas as
+-- propriedades disponíveis terem sido enviadas ao menos uma vez.
+-- Resetado automaticamente pelo auto-scheduler quando o ciclo se esgota.
+-- Instance sem CHECK constraint — novas instâncias funcionam sem alterar o schema.
+CREATE TABLE IF NOT EXISTS Dispatch_Cycle (
+    ImovelID    INTEGER NOT NULL,
+    Instance    TEXT    NOT NULL,
+    SentAt      TEXT    NOT NULL,  -- YYYY-MM-DD (fuso America/Sao_Paulo)
+    PRIMARY KEY (ImovelID, Instance),
+    FOREIGN KEY (ImovelID) REFERENCES Imoveis (ImovelID)
+);
 
--- 1. Registro de Inclusão
+-- ─── TRIGGERS ─────────────────────────────────────────────────────────────────
+
 DROP TRIGGER IF EXISTS log_imovel_insert;
 CREATE TRIGGER log_imovel_insert
 AFTER INSERT ON Imoveis
@@ -92,7 +104,6 @@ BEGIN
     VALUES (NEW.ImovelID, 'INSERT', 'Tudo', 'Imóvel cadastrado com sucesso');
 END;
 
--- 2. Registro Exato de Status
 DROP TRIGGER IF EXISTS log_imovel_update_status;
 CREATE TRIGGER log_imovel_update_status
 AFTER UPDATE OF ImovelStatus ON Imoveis
@@ -102,7 +113,6 @@ BEGIN
     VALUES (OLD.ImovelID, 'UPDATE', 'ImovelStatus', OLD.ImovelStatus, NEW.ImovelStatus);
 END;
 
--- 3. Registro Exato de Preço
 DROP TRIGGER IF EXISTS log_imovel_update_valor;
 CREATE TRIGGER log_imovel_update_valor
 AFTER UPDATE OF Valor ON Imoveis
@@ -114,8 +124,8 @@ END;
 
 -- ─── ÍNDICES ──────────────────────────────────────────────────────────────────
 
-CREATE INDEX IF NOT EXISTS idx_imoveis_bairro    ON Imoveis (BairroID);
-CREATE INDEX IF NOT EXISTS idx_imoveis_status    ON Imoveis (ImovelStatus);
-CREATE INDEX IF NOT EXISTS idx_auditoria_imovel  ON Auditoria_Imoveis (ImovelID);
--- Acelera a consulta de disponibilidade feita pelo auto-scheduler a cada reset
-CREATE INDEX IF NOT EXISTS idx_dispatched_date   ON Dispatched_Today (Reserved_At);
+CREATE INDEX IF NOT EXISTS idx_imoveis_bairro   ON Imoveis (BairroID);
+CREATE INDEX IF NOT EXISTS idx_imoveis_status   ON Imoveis (ImovelStatus);
+CREATE INDEX IF NOT EXISTS idx_auditoria_imovel ON Auditoria_Imoveis (ImovelID);
+CREATE INDEX IF NOT EXISTS idx_dispatched_date  ON Dispatched_Today (Reserved_At);
+CREATE INDEX IF NOT EXISTS idx_cycle_instance   ON Dispatch_Cycle (Instance);

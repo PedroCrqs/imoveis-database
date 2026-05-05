@@ -10,10 +10,12 @@ IMOVEIS_LOCAL = DATA_PATH / "imoveis"
 IMOVEIS_DRIVE = DRIVE_DIR / "imoveis"
 
 
-async def do_backup(flux: str) -> None:
+# Chamar a função sync_folder toda vez que fizermos alguma alteração na .db não é nada prático. Ao adicionar um bloco if dentro do "upload" eu reservo o sync_folder apenas para operações que realmente fazem alguma alteração nos diretórios de imóveis (alteração de preço, inclusão de imóveis ou alteração de status)
+async def do_backup(flux: str, sync: bool = False) -> None:
     if flux == "upload":
         await asyncio.to_thread(shutil.copy, DB_PATH, DRIVE_DIR)
-        await asyncio.to_thread(sync_folder, IMOVEIS_LOCAL, IMOVEIS_DRIVE)
+        if sync:
+            await asyncio.to_thread(sync_folder, IMOVEIS_LOCAL, IMOVEIS_DRIVE)
     elif flux == "download":
         await asyncio.to_thread(shutil.copy, BACKUP_PATH, DATA_PATH)
         await asyncio.to_thread(sync_folder, IMOVEIS_DRIVE, IMOVEIS_LOCAL)
