@@ -26,14 +26,30 @@ def file_hash(path: Path) -> str:
 
 
 def sync_folder(src: Path, dst: Path) -> None:
-    """Copia apenas arquivos novos ou modificados de src para dst."""
+    """Sincroniza apenas arquivos novos ou alterados."""
     dst.mkdir(parents=True, exist_ok=True)
+
     for src_file in src.rglob("*"):
-        if src_file.is_file():
-            dst_file = dst / src_file.relative_to(src)
-            dst_file.parent.mkdir(parents=True, exist_ok=True)
-            if not dst_file.exists() or file_hash(src_file) != file_hash(dst_file):
-                shutil.copy2(src_file, dst_file)
+        if not src_file.is_file():
+            continue
+
+        dst_file = dst / src_file.relative_to(src)
+
+        dst_file.parent.mkdir(parents=True, exist_ok=True)
+
+        if not dst_file.exists():
+            shutil.copy2(src_file, dst_file)
+            continue
+
+        src_stat = src_file.stat()
+        dst_stat = dst_file.stat()
+
+        # compara tamanho e data de modificação
+        if (
+            src_stat.st_size != dst_stat.st_size
+            or src_stat.st_mtime > dst_stat.st_mtime
+        ):
+            shutil.copy2(src_file, dst_file)
 
 
 def update_description_prices(

@@ -78,7 +78,7 @@ def add_property(
         INSERT INTO Imoveis (
             Tipologia, Quartos, Vagas, ProprietarioID, Valor, ValorCondominio, IPTU,
             Metragem, Sol, BairroID, CondominioID, Endereco, Descricao,
-            LinkPublico, CaminhoDrive
+            CaminhoDrive, LinkPublico
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     with sqlite3.connect(DB_PATH) as conn:
