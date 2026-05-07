@@ -9,6 +9,24 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [1.4.1] — 2026-05-07
+
+#### Corrigido
+
+- **Performance do `sync_folder`**: removida comparação via hash MD5 de todos os arquivos durante o backup incremental. O sistema agora compara apenas `st_size` e `st_mtime`, reduzindo drasticamente operações de I/O, uso de CPU e tempo de sincronização em diretórios grandes
+- **Mapeamento de `CaminhoDrive` e `LinkPublico`**: corrigida inversão dos parâmetros no fluxo de cadastro de imóveis — os campos agora são persistidos corretamente na tabela `Imoveis`
+
+---
+
+### [1.4.1] — 2026-05-07
+
+#### Fixed
+
+- **`sync_folder` performance**: removed MD5 hash comparison for all files during incremental backup. The system now compares only `st_size` and `st_mtime`, drastically reducing I/O operations, CPU usage, and synchronization time on large directories
+- **`CaminhoDrive` and `LinkPublico` mapping**: fixed inverted parameter order during property creation flow — fields are now correctly persisted in the `Imoveis` table
+
+---
+
 ### [1.4.0] — 2026-05-05
 
 #### Adicionado
