@@ -67,19 +67,21 @@ def update_description_prices(
 
     if price is not None:
         text = re.sub(
-            r"\*R\$[\s\d.,]+\*",
+            r"\*R\$ ?[\d.,]+\*",
             f"*R$ {_fmt(price)}*",
             text,
         )
+
     if condo_fee is not None:
         text = re.sub(
-            r"Condomínio: R\$[\s\d.,]+",
+            r"Condomínio: R\$ ?[\d.,]+",
             f"Condomínio: R$ {_fmt(condo_fee)}",
             text,
         )
+
     if tax is not None:
         text = re.sub(
-            r"IPTU: R\$[\s\d.,]+",
+            r"IPTU: R\$ ?[\d.,]+",
             f"IPTU: R$ {_fmt(tax)}",
             text,
         )
