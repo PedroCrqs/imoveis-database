@@ -9,21 +9,22 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [1.4.2] — 2026-05-11
+
+#### Corrigido
+
+- **Regex de Preços**: Ajustado o padrão de busca em `update_description_prices` para evitar a captura de quebras de linha (`\n`). O uso anterior de `\s` causava espaçamentos duplos indesejados no arquivo `Descrição.txt`.
+- **TypeError no Processamento**: Removida a criação acidental de uma tupla na atribuição da variável `text`, que gerava o erro `expected string or bytes-like object, got 'tuple'`.
+- **Saneamento de Formatação**: Removida a inserção manual de `\n` nas f-strings de substituição de Condomínio e IPTU para preservar a estrutura original do documento.
+
+---
+
 ### [1.4.1] — 2026-05-07
 
 #### Corrigido
 
 - **Performance do `sync_folder`**: removida comparação via hash MD5 de todos os arquivos durante o backup incremental. O sistema agora compara apenas `st_size` e `st_mtime`, reduzindo drasticamente operações de I/O, uso de CPU e tempo de sincronização em diretórios grandes
 - **Mapeamento de `CaminhoDrive` e `LinkPublico`**: corrigida inversão dos parâmetros no fluxo de cadastro de imóveis — os campos agora são persistidos corretamente na tabela `Imoveis`
-
----
-
-### [1.4.1] — 2026-05-07
-
-#### Fixed
-
-- **`sync_folder` performance**: removed MD5 hash comparison for all files during incremental backup. The system now compares only `st_size` and `st_mtime`, drastically reducing I/O operations, CPU usage, and synchronization time on large directories
-- **`CaminhoDrive` and `LinkPublico` mapping**: fixed inverted parameter order during property creation flow — fields are now correctly persisted in the `Imoveis` table
 
 ---
 
@@ -126,6 +127,25 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [1.4.2] — 2026-05-11
+
+#### Fixed
+
+- **Price Regex**: Adjusted the search pattern in `update_description_prices` to prevent capturing newlines (`\n`). The previous use of `\s` was causing unwanted double spacing in `Descrição.txt`.
+- **Processing TypeError**: Fixed an accidental tuple assignment to the `text` variable that caused the `expected string or bytes-like object, got 'tuple'` error.
+- **Formatting Cleanup**: Removed manual `\n` insertion in replacement f-strings for Condo and Tax fees to preserve the original document structure.
+
+---
+
+### [1.4.1] — 2026-05-07
+
+#### Fixed
+
+- **`sync_folder` performance**: removed MD5 hash comparison for all files during incremental backup. The system now compares only `st_size` and `st_mtime`, drastically reducing I/O operations, CPU usage, and synchronization time on large directories
+- **`CaminhoDrive` and `LinkPublico` mapping**: fixed inverted parameter order during property creation flow — fields are now correctly persisted in the `Imoveis` table
 
 ---
 
