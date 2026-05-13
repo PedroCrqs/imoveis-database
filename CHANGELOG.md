@@ -9,6 +9,20 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [1.5.0] — 2026-05-12
+
+#### Adicionado
+
+- **Referência de ID nos anúncios** (`add_ref.py`): novo módulo que injeta `_Ref: {ImovelID}_` na terceira linha do `Descrição.txt`, sincronizando `.db`, pasta local e pasta no Drive. Restrito a imóveis com status `Disponível`. Idempotente via regex — nunca duplica a linha
+- **`add_ref_to_all()`**: função de migração que aplica a referência em todos os imóveis disponíveis existentes, tratando o caso em que o `.txt` já foi patchado mas o banco ainda não foi atualizado (usa o `.txt` local como fonte da verdade)
+- **Normalização NFC**: `_patch_txt` normaliza o nome do arquivo via `unicodedata.normalize("NFC")` para compatibilidade com filesystems que salvam em NFD
+
+#### Corrigido
+
+- **Ref injetada no cadastro**: ao cadastrar um novo imóvel, `_patch_txt` é chamado nas pastas local e do Drive imediatamente após a criação, e o banco é atualizado com a descrição já contendo a ref
+
+---
+
 ### [1.4.2] — 2026-05-11
 
 #### Corrigido
@@ -130,6 +144,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+### [1.5.0] — 2026-05-12
+
+#### Added
+
+- **Property ID reference in listings** (`add_ref.py`): new module that injects `_Ref: {ImovelID}_` on the third line of `Descrição.txt`, syncing `.db`, local folder, and Drive folder. Restricted to properties with status `Disponível`. Idempotent via regex — never duplicates the line
+- **`add_ref_to_all()`**: migration function that applies the reference to all existing available properties, handling the case where the `.txt` was already patched but the database was not yet updated (uses local `.txt` as source of truth)
+- **NFC normalization**: `_patch_txt` normalizes filenames via `unicodedata.normalize("NFC")` for compatibility with filesystems that store in NFD
+
+#### Fixed
+
+- **Ref injected on registration**: when registering a new property, `_patch_txt` is called on both local and Drive folders immediately after creation, and the database is updated with the description already containing the ref
+
+---
+
 ### [1.4.2] — 2026-05-11
 
 #### Fixed
@@ -155,7 +183,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Integration with the wpp-scheduler bot**: Now the database will feed the cycle of automatic occasional message dispatches by the wpp-scheduler robot. To this end, two new tables were created for imoveis.db: `Dispatch_Cicle` and `Dispatched_Today`. The latter is responsible for preventing the robot from dispatching the same message on the same day (even in different instances), and the former is responsible for controlling the robot's dispatch cycle, ensuring that it only dispatches the same property again when all properties with the AVAILABLE status in the `Imóveis` table have been dispatched, restarting the cycle.
 
-### Fixed
+#### Fixed
 
 - The `do_backup()` function causes unnecessary system slowdown by occasionally performing `sync_folder` even when the change is only in the .db file. The solution was to add a second boolean argument `sync=False` to the main function and add an `if` block identified with `do_backup("upload")` that is only executed when `sync == True`
 - The call `do_backup("upload", True)` will only occur in three moments: 1st: when adding a new property, 2nd: when changing the price of a property, 3rd: when changing the status of the property
