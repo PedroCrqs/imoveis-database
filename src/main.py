@@ -25,6 +25,7 @@ from backup import (
     update_description_prices,
     DRIVE_DIR,
 )
+from add_ref import _inject_ref, _patch_txt
 from pathlib import Path
 import asyncio
 import sqlite3
@@ -189,6 +190,7 @@ async def handle_add_property() -> None:
     if not desc_file.is_file():
         raise FileNotFoundError(f"'Descrição.txt' not found in '{folder_path}'.")
     description = desc_file.read_text(encoding="utf-8").strip()
+
     # Carrega a pasta inicial para o drive público (se ainda não existir)
     drive_path = OP_DIR_PATH / folder_name
     if drive_path.exists():
@@ -196,6 +198,7 @@ async def handle_add_property() -> None:
     else:
         shutil.copytree(str(folder_path), str(drive_path))
         ok(f"Folder copied to '{OP_DIR_PATH}'.")
+
     # Cadastra o imóvel já com as pastas configuradas
     imovel_id = add_property(
         tipologia,
@@ -215,6 +218,7 @@ async def handle_add_property() -> None:
         public_link,
     )
     ok(f"Property added with ID {imovel_id}.")
+
     # Cria uma pasta local dentro de /data/imoveis
     local_folder = (
         Path(__file__).resolve().parent.parent
@@ -229,6 +233,12 @@ async def handle_add_property() -> None:
     ok(f"{len(inserted)} photo(s) registered.")
     # Apaga a pasta inicial. Desnecessária após esse ponto
     shutil.rmtree(str(folder_path))
+
+    _patch_txt(local_folder, imovel_id)
+    _patch_txt(drive_path, imovel_id)
+    # Lê a descrição já com a ref injetada para sincronizar o banco
+    new_desc = (local_folder / "Descrição.txt").read_text(encoding="utf-8").strip()
+    update_field(imovel_id, "Descricao", new_desc)
 
     await do_backup("upload", True)
 
