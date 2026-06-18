@@ -9,6 +9,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [1.5.1] — 2026-06-18
+
+#### Corrigido
+
+- **do_backup(download) adicionado**: antes de cada operação que vá alterar a database ou a pasta de arquivos para evitar conflito com alterações feitas pelo robô.
+
+---
+
 ### [1.5.0] — 2026-05-12
 
 #### Adicionado
@@ -141,6 +149,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [1.5.1] — 2026-06-18
+
+#### Fixed
+
+- **do_backup(download) added**: before each operation that will modify the database or file folder to avoid conflicts with changes made by the robot.
 
 ---
 
