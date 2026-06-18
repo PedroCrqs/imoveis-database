@@ -1,37 +1,38 @@
-from repository import (
-    add_neighborhood,
-    add_seller,
-    add_condo,
-    add_property,
-    add_photos,
-    update_status,
-    update_prices,
-    update_field,
-    get_property,
-    get_available_properties,
-    get_property_by_neighborhood,
-    get_property_by_condo,
-    get_condo_name,
-    get_neighborhood_name,
-    get_owner,
-    get_folder_path,
-    get_drive_path,
-    get_public_link,
-    VALID_STATUS,
-    IMOVEIS_UPDATABLE,
-)
-from backup import (
-    do_backup,
-    update_description_prices,
-    DRIVE_DIR,
-)
-from add_ref import _inject_ref, _patch_txt
-from pathlib import Path
 import asyncio
-import sqlite3
-import webbrowser
 import inspect
 import shutil
+import sqlite3
+import webbrowser
+from pathlib import Path
+
+from add_ref import _inject_ref, _patch_txt
+from backup import (
+    DRIVE_DIR,
+    do_backup,
+    update_description_prices,
+)
+from repository import (
+    IMOVEIS_UPDATABLE,
+    VALID_STATUS,
+    add_condo,
+    add_neighborhood,
+    add_photos,
+    add_property,
+    add_seller,
+    get_available_properties,
+    get_condo_name,
+    get_drive_path,
+    get_folder_path,
+    get_neighborhood_name,
+    get_owner,
+    get_property,
+    get_property_by_condo,
+    get_property_by_neighborhood,
+    get_public_link,
+    update_field,
+    update_prices,
+    update_status,
+)
 
 OP_DIR_PATH = DRIVE_DIR / "Opções Diretas"
 DESKTOP_PATH = Path("/home/pedrocrqs/Desktop")
@@ -105,20 +106,20 @@ MENU = """
 {DIV}
       IMOVEIS DATABASE  —  Main Menu
 {DIV}
-  [1] Add neighborhood        
-  [2] Add owner               
-  [3] Add condo               
-  [4] Add property            
-  [5] Update property status  
-  [6] Update prices    
+  [1] Add neighborhood
+  [2] Add owner
+  [3] Add condo
+  [4] Add property
+  [5] Update property status
+  [6] Update prices
   [7] Correct a field
   [8] Find a property
   [9] Find a property by neighborhood
   [10] Show available properties
   [11] Show owner by ID
   [12] Find a property by condominium
-{DIV}                       
-  [0] Exit                  
+{DIV}
+  [0] Exit
 {DIV}""".format(DIV=DIV)
 
 # ─────────────────────────────────────────────
@@ -135,6 +136,7 @@ VALID_STATUS_LABEL = "0: Disponível | 1: Vendido | 2: Alugado | 3: Retirado de 
 
 
 async def handle_add_neighborhood() -> None:
+    await do_backup("download")
     header("Add Neighborhood")
     print(f"  Zones: {ZONES_LABEL}")
     name = prompt("Name")
@@ -145,6 +147,7 @@ async def handle_add_neighborhood() -> None:
 
 
 async def handle_add_seller() -> None:
+    await do_backup("download")
     header("Add Seller")
     name = prompt("Full name")
     phone = prompt("Phone")
@@ -155,6 +158,7 @@ async def handle_add_seller() -> None:
 
 
 async def handle_add_condo() -> None:
+    await do_backup("download")
     header("Add Condo")
     name = prompt("Name")
     address = prompt("Address")
@@ -166,6 +170,7 @@ async def handle_add_condo() -> None:
 
 
 async def handle_add_property() -> None:
+    await do_backup("download")
     header("Add Property")
     print(f"  Types: {TIPOLOGIA_LABEL}")
     tipologia = TIPOLOGIA[prompt_int("Type")]
@@ -239,7 +244,6 @@ async def handle_add_property() -> None:
     # Lê a descrição já com a ref injetada para sincronizar o banco
     new_desc = (local_folder / "Descrição.txt").read_text(encoding="utf-8").strip()
     update_field(imovel_id, "Descricao", new_desc)
-
     await do_backup("upload", True)
 
 
@@ -249,6 +253,7 @@ async def handle_add_property() -> None:
 
 
 async def handle_update_status() -> None:
+    await do_backup("download")
     header("Update Property Status")
     property_id = prompt_int("Property ID")
     prop = get_property(property_id)
@@ -291,6 +296,7 @@ async def handle_update_status() -> None:
 
 
 async def handle_update_prices() -> None:
+    await do_backup("download")
     header("Update Prices")
     print("  Leave blank to keep current value.")
     imovel_id = prompt_int("Property ID")
@@ -313,20 +319,19 @@ async def handle_update_prices() -> None:
     # Atualiza Descrição.txt no Drive se pasta existir
     if drive_folder and drive_folder.exists():
         update_description_prices(drive_folder, price, condo_fee, tax)
-
     update_prices(imovel_id, price, condo_fee, tax, description)
     await do_backup("upload", True)
     ok(f"Prices updated for property {imovel_id}.")
 
 
 async def handle_update_field() -> None:
+    await do_backup("download")
     header("Correct a Field")
     print(f"  Updatable fields: {', '.join(sorted(IMOVEIS_UPDATABLE))}")
     imovel_id = prompt_int("Property ID")
     field = prompt("Field name")
     value = prompt("New value")
     update_field(imovel_id, field, value)
-    await do_backup("upload")
     ok(f"Field '{field}' updated for property {imovel_id}.")
 
 
