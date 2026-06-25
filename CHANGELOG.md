@@ -9,6 +9,20 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [1.6.0] — 2026-06-25
+
+#### Adicionado
+
+- **Atualização de nome de condomínio**: adicionadas as funções `update_condo_name` no `repository.py` e `handle_update_condo_name` no `main.py`, permitindo alterar o nome de condomínios já cadastrados diretamente pela CLI
+- **Nova opção `[13] Update condo name`** adicionada ao menu principal
+
+#### Corrigido
+
+- **Fluxo de backup após alterações**: adicionada a chamada `do_backup("upload", True)` após operações de atualização de imóveis para garantir a sincronização correta entre banco de dados, pasta local e Drive
+- Corrigido problema em que alterações realizadas nos imóveis eram persistidas apenas localmente, sem serem enviadas ao backup remoto
+
+---
+
 ### [1.5.1] — 2026-06-18
 
 #### Corrigido
@@ -149,6 +163,20 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [1.6.0] — 2026-06-25
+
+#### Added
+
+- **Condo name update support**: added `update_condo_name` in `repository.py` and `handle_update_condo_name` in `main.py`, allowing existing condominium names to be updated directly from the CLI
+- **New `[13] Update condo name`** option added to the main menu
+
+#### Fixed
+
+- **Backup flow after updates**: added `do_backup("upload", True)` after property update operations to ensure proper synchronization between database, local folders and Drive
+- Fixed an issue where property changes were being saved locally but were not propagated to the remote backup
 
 ---
 

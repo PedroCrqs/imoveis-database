@@ -29,6 +29,7 @@ from repository import (
     get_property_by_condo,
     get_property_by_neighborhood,
     get_public_link,
+    update_condo_name,
     update_field,
     update_prices,
     update_status,
@@ -118,6 +119,7 @@ MENU = """
   [10] Show available properties
   [11] Show owner by ID
   [12] Find a property by condominium
+  [13] Update condo name
 {DIV}
   [0] Exit
 {DIV}""".format(DIV=DIV)
@@ -332,7 +334,17 @@ async def handle_update_field() -> None:
     field = prompt("Field name")
     value = prompt("New value")
     update_field(imovel_id, field, value)
+    await do_backup("upload", True)
     ok(f"Field '{field}' updated for property {imovel_id}.")
+
+
+async def handle_update_condo_name() -> None:
+    await do_backup("download")
+    header("Update Condo Name")
+    condo_id = prompt_int("Condo ID")
+    name = prompt("New name")
+    update_condo_name(condo_id, name)
+    ok(f"Condo name updated for condo {condo_id}.")
 
 
 # ─────────────────────────────────────────────
@@ -452,6 +464,7 @@ HANDLERS = {
     10: handle_show_available_properties,
     11: handle_find_owner,
     12: handle_find_property_by_condo,
+    13: handle_update_condo_name,
 }
 
 # ─────────────────────────────────────────────

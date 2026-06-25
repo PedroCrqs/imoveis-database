@@ -1,6 +1,7 @@
-from database import DB_PATH
-from pathlib import Path
 import sqlite3
+from pathlib import Path
+
+from database import DB_PATH
 
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
@@ -214,6 +215,18 @@ def update_field(property_id: int, field: str, value: str) -> None:
 
     if cursor.rowcount == 0:
         raise LookupError(f"No property found with ID {property_id}.")
+
+
+def update_condo_name(condo_id: int, name: str) -> None:
+    query = "UPDATE Condondominios SET Nome = ? WHERE CondominioID = ?"
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("PRAGMA foreign_keys = ON;")
+        cursor = conn.execute(query, (name, condo_id))
+        conn.commit()
+
+    if cursor.rowcount == 0:
+        raise LookupError(f"No condo found with ID {condo_id}.")
 
 
 # ─────────────────────────────────────────────
