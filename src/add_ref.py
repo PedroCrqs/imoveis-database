@@ -15,7 +15,7 @@ from pathlib import Path
 
 from database import pool
 from repository import get_folder_path, get_drive_path
-from backup import sync_photos
+from backup import sync
 
 REF_PATTERN = re.compile(r"^_Ref: \d+_$", re.MULTILINE)
 
@@ -143,4 +143,4 @@ def add_ref_to_all() -> None:
 
 if __name__ == "__main__":
     add_ref_to_all()
-    asyncio.run(sync_photos("upload"))
+    asyncio.run(sync("upload"))
