@@ -65,7 +65,7 @@ def sync_folder(src: Path, dst: Path) -> None:
             shutil.copy2(src_file, dst_file)
 
 
-async def sync(direction: str) -> None:
+async def sync_photos(direction: str) -> None:
     """direction: 'upload' (local → Drive) ou 'download' (Drive → local)."""
     import asyncio
 
