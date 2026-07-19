@@ -88,9 +88,12 @@ def migrate_table(sq_conn: sqlite3.Connection, pg_conn: psycopg.Connection, tabl
     renames = COLUMN_RENAMES.get(table, {})
     target_columns = [renames.get(c, c) for c in source_columns]
 
-    col_list = ", ".join(target_columns)
+    # Aspas duplas adicionadas nas colunas para evitar erros com letras maiúsculas
+    col_list = ", ".join([f'"{c}"' for c in target_columns])
     placeholders = ", ".join(["%s"] * len(target_columns))
-    insert_sql = f"INSERT INTO {table} ({col_list}) VALUES ({placeholders})"
+
+    # Aspas duplas adicionadas no nome da tabela para manter o Case Sensitivity do Postgres
+    insert_sql = f'INSERT INTO "{table}" ({col_list}) VALUES ({placeholders})'
 
     with pg_conn.cursor() as cur:
         for row in rows:
@@ -105,17 +108,13 @@ def reset_sequences(pg_conn: psycopg.Connection) -> None:
     print("\nRealinhando sequences (SERIAL)...")
     with pg_conn.cursor() as cur:
         for table, column in SERIAL_COLUMNS.items():
-            # pg_get_serial_sequence espera os nomes em "identifier normal
-            # form" — ou seja, já em minúsculo para identificadores criados
-            # sem aspas (nosso caso). Passar "ProprietarioID" como veio do
-            # dict falha; "proprietarioid" funciona.
-            table_lc = table.lower()
-            column_lc = column.lower()
+            # Passando os nomes com aspas duplas internas ('"Tabela"') para o Postgres
+            # localizar as sequences de tabelas criadas com Case Sensitivity pelo ORM.
             cur.execute(
                 f"""
                 SELECT setval(
-                    pg_get_serial_sequence('{table_lc}', '{column_lc}'),
-                    COALESCE((SELECT MAX({column}) FROM {table}), 1),
+                    pg_get_serial_sequence('"{table}"', '"{column}"'),
+                    COALESCE((SELECT MAX("{column}") FROM "{table}"), 1),
                     true
                 )
                 """
@@ -141,16 +140,16 @@ def main() -> None:
     with psycopg.connect(DATABASE_URL, autocommit=False) as pg_conn:
         try:
             with pg_conn.cursor() as cur:
-                # Desliga os triggers de auditoria só durante a migração de Imoveis,
-                # para não gerar logs falsos de "cadastrado agora" para dados antigos.
-                cur.execute("ALTER TABLE Imoveis DISABLE TRIGGER ALL;")
+                # Desliga os triggers usando aspas duplas na tabela "Imoveis"
+                cur.execute('ALTER TABLE "Imoveis" DISABLE TRIGGER ALL;')
 
             total = 0
             for table in TABLES_IN_ORDER:
                 total += migrate_table(sq_conn, pg_conn, table)
 
             with pg_conn.cursor() as cur:
-                cur.execute("ALTER TABLE Imoveis ENABLE TRIGGER ALL;")
+                # Reativa os triggers usando aspas duplas na tabela "Imoveis"
+                cur.execute('ALTER TABLE "Imoveis" ENABLE TRIGGER ALL;')
 
             reset_sequences(pg_conn)
 
