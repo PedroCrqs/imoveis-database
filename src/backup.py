@@ -1,27 +1,42 @@
-import shutil
-import hashlib
-import asyncio
 import re
+import shutil
 from pathlib import Path
-from database import DATA_PATH, DB_PATH, DRIVE_DIR
 
-BACKUP_PATH = DRIVE_DIR / "imoveis.db"
+from database import DATA_PATH
+
+# Diretório do Google Drive montado localmente (rclone, Drive for Desktop, etc).
+# Ajuste via variável de ambiente se o caminho variar entre ambientes.
+import os
+
+DRIVE_DIR = Path(
+    os.environ.get(
+        "DRIVE_DIR",
+        str(Path(__file__).resolve().parent.parent.parent.parent / "majesto-drive"),
+    )
+)
+
 IMOVEIS_LOCAL = DATA_PATH / "imoveis"
 IMOVEIS_DRIVE = DRIVE_DIR / "imoveis"
 
-
-# Chamar a função sync_folder toda vez que fizermos alguma alteração na .db não é nada prático. Ao adicionar um bloco if dentro do "upload" eu reservo o sync_folder apenas para operações que realmente fazem alguma alteração nos diretórios de imóveis (alteração de preço, inclusão de imóveis ou alteração de status)
-async def do_backup(flux: str, sync: bool = False) -> None:
-    if flux == "upload":
-        await asyncio.to_thread(shutil.copy, DB_PATH, DRIVE_DIR)
-        if sync:
-            await asyncio.to_thread(sync_folder, IMOVEIS_LOCAL, IMOVEIS_DRIVE)
-    elif flux == "download":
-        await asyncio.to_thread(shutil.copy, BACKUP_PATH, DATA_PATH)
-        await asyncio.to_thread(sync_folder, IMOVEIS_DRIVE, IMOVEIS_LOCAL)
+# NOTA DE MIGRAÇÃO: a versão anterior deste módulo copiava o arquivo
+# `imoveis.db` inteiro de/para o Drive antes e depois de cada operação
+# (do_backup("download"/"upload")). Isso existia porque o SQLite é um
+# arquivo local sem servidor — não havia outra forma de "compartilhar"
+# o banco entre máquinas.
+#
+# Com PostgreSQL isso deixa de existir: o banco é um servidor que várias
+# fontes (site, robô de disparo, sentinela, este CLI) acessam diretamente
+# e concorrentemente. Manter a cópia do .db aqui seria, na melhor das
+# hipóteses, inútil, e na pior, uma fonte de dados desatualizados sendo
+# sobrescritos por engano.
+#
+# O que continua fazendo sentido é sincronizar as FOTOS dos imóveis com o
+# Drive — isso é independente do motor de banco de dados.
 
 
 def file_hash(path: Path) -> str:
+    import hashlib
+
     return hashlib.md5(path.read_bytes()).hexdigest()
 
 
@@ -34,7 +49,6 @@ def sync_folder(src: Path, dst: Path) -> None:
             continue
 
         dst_file = dst / src_file.relative_to(src)
-
         dst_file.parent.mkdir(parents=True, exist_ok=True)
 
         if not dst_file.exists():
@@ -44,12 +58,23 @@ def sync_folder(src: Path, dst: Path) -> None:
         src_stat = src_file.stat()
         dst_stat = dst_file.stat()
 
-        # compara tamanho e data de modificação
         if (
             src_stat.st_size != dst_stat.st_size
             or src_stat.st_mtime > dst_stat.st_mtime
         ):
             shutil.copy2(src_file, dst_file)
+
+
+async def sync_photos(direction: str) -> None:
+    """direction: 'upload' (local → Drive) ou 'download' (Drive → local)."""
+    import asyncio
+
+    if direction == "upload":
+        await asyncio.to_thread(sync_folder, IMOVEIS_LOCAL, IMOVEIS_DRIVE)
+    elif direction == "download":
+        await asyncio.to_thread(sync_folder, IMOVEIS_DRIVE, IMOVEIS_LOCAL)
+    else:
+        raise ValueError(f"Invalid direction: '{direction}'")
 
 
 def update_description_prices(
@@ -66,25 +91,15 @@ def update_description_prices(
     text = desc_file.read_text(encoding="utf-8")
 
     if price is not None:
-        text = re.sub(
-            r"\*R\$ ?[\d.,]+\*",
-            f"*R$ {_fmt(price)}*",
-            text,
-        )
+        text = re.sub(r"\*R\$ ?[\d.,]+\*", f"*R$ {_fmt(price)}*", text)
 
     if condo_fee is not None:
         text = re.sub(
-            r"Condomínio: R\$ ?[\d.,]+",
-            f"Condomínio: R$ {_fmt(condo_fee)}",
-            text,
+            r"Condomínio: R\$ ?[\d.,]+", f"Condomínio: R$ {_fmt(condo_fee)}", text
         )
 
     if tax is not None:
-        text = re.sub(
-            r"IPTU: R\$ ?[\d.,]+",
-            f"IPTU: R$ {_fmt(tax)}",
-            text,
-        )
+        text = re.sub(r"IPTU: R\$ ?[\d.,]+", f"IPTU: R$ {_fmt(tax)}", text)
 
     desc_file.write_text(text, encoding="utf-8")
 

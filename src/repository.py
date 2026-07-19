@@ -1,7 +1,6 @@
-import sqlite3
 from pathlib import Path
 
-from database import DB_PATH
+from database import pool
 
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
@@ -30,32 +29,30 @@ VALID_STATUS = ["Disponível", "Vendido", "Alugado", "Retirado de Venda"]
 
 
 def add_neighborhood(name: str, zone: str) -> int:
-    query = "INSERT INTO Bairros (Nome, BairroZona) VALUES (?, ?)"
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("PRAGMA foreign_keys = ON;")
-        cursor = conn.execute(query, (name, zone))
-        conn.commit()
-        return cursor.lastrowid
+    query = "INSERT INTO Bairros (Nome, BairroZona) VALUES (%s, %s) RETURNING BairroID"
+    with pool.connection() as conn:
+        row = conn.execute(query, (name, zone)).fetchone()
+        return row["bairroid"]
 
 
 def add_seller(name: str, phone: str, email: str) -> int:
-    query = "INSERT INTO Proprietarios (Nome, Telefone, Email) VALUES (?, ?, ?)"
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.execute(query, (name, phone, email))
-        conn.commit()
-        return cursor.lastrowid
+    query = "INSERT INTO Proprietarios (Nome, Telefone, Email) VALUES (%s, %s, %s) RETURNING ProprietarioID"
+    with pool.connection() as conn:
+        row = conn.execute(query, (name, phone, email)).fetchone()
+        return row["proprietarioid"]
 
 
 def add_condo(name: str, address: str, infra: str, neighborhood_id: int) -> int:
+    # FIX: a coluna no schema Postgres é "Endereco" (sem cedilha) — o schema
+    # SQLite antigo usava "Endereço", o que quebraria esse INSERT.
     query = """
-        INSERT INTO Condominios (Nome, Endereço, Infraestrutura, BairroID)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO Condominios (Nome, Endereco, Infraestrutura, BairroID)
+        VALUES (%s, %s, %s, %s)
+        RETURNING CondominioID
     """
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("PRAGMA foreign_keys = ON;")
-        cursor = conn.execute(query, (name, address, infra, neighborhood_id))
-        conn.commit()
-        return cursor.lastrowid
+    with pool.connection() as conn:
+        row = conn.execute(query, (name, address, infra, neighborhood_id)).fetchone()
+        return row["condominioid"]
 
 
 def add_property(
@@ -80,11 +77,11 @@ def add_property(
             Tipologia, Quartos, Vagas, ProprietarioID, Valor, ValorCondominio, IPTU,
             Metragem, Sol, BairroID, CondominioID, Endereco, Descricao,
             CaminhoDrive, LinkPublico
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING ImovelID
     """
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("PRAGMA foreign_keys = ON;")
-        cursor = conn.execute(
+    with pool.connection() as conn:
+        row = conn.execute(
             query,
             (
                 tipologia,
@@ -103,9 +100,8 @@ def add_property(
                 drive_folder,
                 public_link,
             ),
-        )
-        conn.commit()
-        return cursor.lastrowid
+        ).fetchone()
+        return row["imovelid"]
 
 
 def add_photos(folder_path: str, property_id: int) -> list[int]:
@@ -127,16 +123,14 @@ def add_photos(folder_path: str, property_id: int) -> list[int]:
     if not photos:
         raise FileNotFoundError(f"No images found in '{folder_path}'.")
 
-    query = "INSERT INTO Fotos (ImovelID, CaminhoArquivo, Principal) VALUES (?, ?, ?)"
+    query = "INSERT INTO Fotos (ImovelID, CaminhoArquivo, Principal) VALUES (%s, %s, %s) RETURNING FotoID"
     inserted_ids = []
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("PRAGMA foreign_keys = ON;")
+    with pool.connection() as conn:
         for photo in photos:
             is_cover = photo.stem == "0"
-            cursor = conn.execute(query, (property_id, str(photo), is_cover))
-            inserted_ids.append(cursor.lastrowid)
-        conn.commit()
+            row = conn.execute(query, (property_id, str(photo), is_cover)).fetchone()
+            inserted_ids.append(row["fotoid"])
 
     return inserted_ids
 
@@ -153,17 +147,14 @@ def update_status(property_id: int, status: str) -> None:
     set_date = status in {"Vendido", "Alugado"}
     query = """
         UPDATE Imoveis
-        SET ImovelStatus = ?,
-            DataVenda = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END
-        WHERE ImovelID = ?
+        SET ImovelStatus = %s,
+            DataVenda = CASE WHEN %s THEN CURRENT_TIMESTAMP ELSE NULL END
+        WHERE ImovelID = %s
     """
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("PRAGMA foreign_keys = ON;")
+    with pool.connection() as conn:
         cursor = conn.execute(query, (status, set_date, property_id))
-        conn.commit()
-
-    if cursor.rowcount == 0:
-        raise LookupError(f"No property found with ID {property_id}.")
+        if cursor.rowcount == 0:
+            raise LookupError(f"No property found with ID {property_id}.")
 
 
 def update_prices(
@@ -176,57 +167,53 @@ def update_prices(
     fields, values = [], []
 
     if price is not None:
-        fields.append("Valor = ?")
+        fields.append("Valor = %s")
         values.append(price)
     if condo_fee is not None:
-        fields.append("ValorCondominio = ?")
+        fields.append("ValorCondominio = %s")
         values.append(condo_fee)
     if tax is not None:
-        fields.append("IPTU = ?")
+        fields.append("IPTU = %s")
         values.append(tax)
     if new_description is not None:
-        fields.append("Descricao = ?")
+        fields.append("Descricao = %s")
         values.append(new_description)
 
     if not fields:
         raise ValueError("At least one price field must be provided.")
 
     values.append(property_id)
-    query = f"UPDATE Imoveis SET {', '.join(fields)} WHERE ImovelID = ?"
+    query = f"UPDATE Imoveis SET {', '.join(fields)} WHERE ImovelID = %s"
 
-    with sqlite3.connect(DB_PATH) as conn:
+    with pool.connection() as conn:
         cursor = conn.execute(query, values)
-        conn.commit()
-
-    if cursor.rowcount == 0:
-        raise LookupError(f"No property found with ID {property_id}.")
+        if cursor.rowcount == 0:
+            raise LookupError(f"No property found with ID {property_id}.")
 
 
 def update_field(property_id: int, field: str, value: str) -> None:
     if field not in IMOVEIS_UPDATABLE:
         raise ValueError(f"Field not updatable: '{field}'")
 
-    query = f"UPDATE Imoveis SET {field} = ? WHERE ImovelID = ?"
+    # `field` já é validado contra o whitelist IMOVEIS_UPDATABLE acima —
+    # é seguro interpolar o nome da coluna aqui (não é input livre do usuário).
+    query = f"UPDATE Imoveis SET {field} = %s WHERE ImovelID = %s"
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("PRAGMA foreign_keys = ON;")
+    with pool.connection() as conn:
         cursor = conn.execute(query, (value, property_id))
-        conn.commit()
-
-    if cursor.rowcount == 0:
-        raise LookupError(f"No property found with ID {property_id}.")
+        if cursor.rowcount == 0:
+            raise LookupError(f"No property found with ID {property_id}.")
 
 
 def update_condo_name(condo_id: int, name: str) -> None:
-    query = "UPDATE Condondominios SET Nome = ? WHERE CondominioID = ?"
+    # FIX: o código original tinha um typo ("Condondominios") que nunca
+    # funcionou — corrigido para "Condominios".
+    query = "UPDATE Condominios SET Nome = %s WHERE CondominioID = %s"
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("PRAGMA foreign_keys = ON;")
+    with pool.connection() as conn:
         cursor = conn.execute(query, (name, condo_id))
-        conn.commit()
-
-    if cursor.rowcount == 0:
-        raise LookupError(f"No condo found with ID {condo_id}.")
+        if cursor.rowcount == 0:
+            raise LookupError(f"No condo found with ID {condo_id}.")
 
 
 # ─────────────────────────────────────────────
@@ -234,69 +221,59 @@ def update_condo_name(condo_id: int, name: str) -> None:
 # ─────────────────────────────────────────────
 
 
-def get_property(property_id: int) -> sqlite3.Row | None:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.execute(
-            "SELECT * FROM Imoveis WHERE ImovelID = ?", (property_id,)
-        )
-        return cursor.fetchone()
+def get_property(property_id: int) -> dict | None:
+    with pool.connection() as conn:
+        return conn.execute(
+            "SELECT * FROM Imoveis WHERE ImovelID = %s", (property_id,)
+        ).fetchone()
 
 
-def get_available_properties() -> list[sqlite3.Row]:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.execute("SELECT * FROM Imoveis WHERE ImovelStatus = 'Disponível'")
-        return cursor.fetchall()
+def get_available_properties() -> list[dict]:
+    with pool.connection() as conn:
+        return conn.execute(
+            "SELECT * FROM Imoveis WHERE ImovelStatus = 'Disponível'"
+        ).fetchall()
 
 
-def get_property_by_neighborhood(neighborhood_id: int) -> list[sqlite3.Row]:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.execute(
-            "SELECT * FROM Imoveis WHERE BairroID = ?", (neighborhood_id,)
-        )
-        return cursor.fetchall()
+def get_property_by_neighborhood(neighborhood_id: int) -> list[dict]:
+    with pool.connection() as conn:
+        return conn.execute(
+            "SELECT * FROM Imoveis WHERE BairroID = %s", (neighborhood_id,)
+        ).fetchall()
 
 
-def get_property_by_condo(condo_id: int) -> list[sqlite3.Row]:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.execute(
-            "SELECT * FROM Imoveis WHERE CondominioID = ?", (condo_id,)
-        )
-        return cursor.fetchall()
+def get_property_by_condo(condo_id: int) -> list[dict]:
+    with pool.connection() as conn:
+        return conn.execute(
+            "SELECT * FROM Imoveis WHERE CondominioID = %s", (condo_id,)
+        ).fetchall()
 
 
-def get_owner(owner_id: int) -> sqlite3.Row | None:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.execute(
-            "SELECT * FROM Proprietarios WHERE ProprietarioID = ?", (owner_id,)
-        )
-        return cursor.fetchone()
+def get_owner(owner_id: int) -> dict | None:
+    with pool.connection() as conn:
+        return conn.execute(
+            "SELECT * FROM Proprietarios WHERE ProprietarioID = %s", (owner_id,)
+        ).fetchone()
 
 
 def get_condo_name(condo_id: int | None) -> str | None:
     if condo_id is None:
         return None
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with pool.connection() as conn:
         row = conn.execute(
-            "SELECT Nome FROM Condominios WHERE CondominioID = ?", (condo_id,)
+            "SELECT Nome FROM Condominios WHERE CondominioID = %s", (condo_id,)
         ).fetchone()
-        return row["Nome"] if row else None
+        return row["nome"] if row else None
 
 
 def get_neighborhood_name(neighborhood_id: int | None) -> str | None:
     if neighborhood_id is None:
         return None
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with pool.connection() as conn:
         row = conn.execute(
-            "SELECT Nome FROM Bairros WHERE BairroID = ?", (neighborhood_id,)
+            "SELECT Nome FROM Bairros WHERE BairroID = %s", (neighborhood_id,)
         ).fetchone()
-        return row["Nome"] if row else None
+        return row["nome"] if row else None
 
 
 # ─────────────────────────────────────────────
@@ -304,34 +281,31 @@ def get_neighborhood_name(neighborhood_id: int | None) -> str | None:
 # ─────────────────────────────────────────────
 def get_folder_path(property_id: int) -> Path | None:
     """Retorna o Path da pasta local do imóvel."""
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with pool.connection() as conn:
         row = conn.execute(
-            "SELECT CaminhoArquivo FROM Fotos WHERE ImovelID = ? LIMIT 1",
+            "SELECT CaminhoArquivo FROM Fotos WHERE ImovelID = %s LIMIT 1",
             (property_id,),
         ).fetchone()
         if row:
-            return Path(row["CaminhoArquivo"]).parent
+            return Path(row["caminhoarquivo"]).parent
         return None
 
 
 def get_drive_path(property_id: int) -> Path | None:
     """Retorna o Path da pasta do imóvel no Drive."""
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with pool.connection() as conn:
         row = conn.execute(
-            "SELECT CaminhoDrive FROM Imoveis WHERE ImovelID = ?", (property_id,)
+            "SELECT CaminhoDrive FROM Imoveis WHERE ImovelID = %s", (property_id,)
         ).fetchone()
-        if row and row["CaminhoDrive"]:
-            return Path(row["CaminhoDrive"])
+        if row and row["caminhodrive"]:
+            return Path(row["caminhodrive"])
         return None
 
 
 def get_public_link(property_id: int) -> str | None:
     """Retorna o link público do Drive (URL, não path)."""
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with pool.connection() as conn:
         row = conn.execute(
-            "SELECT LinkPublico FROM Imoveis WHERE ImovelID = ?", (property_id,)
+            "SELECT LinkPublico FROM Imoveis WHERE ImovelID = %s", (property_id,)
         ).fetchone()
-        return row["LinkPublico"] if row else None
+        return row["linkpublico"] if row else None

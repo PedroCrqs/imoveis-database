@@ -1,16 +1,13 @@
 import asyncio
 import inspect
 import shutil
-import sqlite3
 import webbrowser
 from pathlib import Path
 
+import psycopg
+
 from add_ref import _inject_ref, _patch_txt
-from backup import (
-    DRIVE_DIR,
-    do_backup,
-    update_description_prices,
-)
+from backup import DRIVE_DIR, sync_photos, update_description_prices
 from repository import (
     IMOVEIS_UPDATABLE,
     VALID_STATUS,
@@ -137,42 +134,35 @@ TIPOLOGIA_LABEL = "0: Apartamento, 1: Casa, 2: Cobertura, 3: Studio"
 VALID_STATUS_LABEL = "0: Disponível | 1: Vendido | 2: Alugado | 3: Retirado de Venda"
 
 
-async def handle_add_neighborhood() -> None:
-    await do_backup("download")
+def handle_add_neighborhood() -> None:
     header("Add Neighborhood")
     print(f"  Zones: {ZONES_LABEL}")
     name = prompt("Name")
     zone = ZONES[prompt_int("Zone")]
     row_id = add_neighborhood(name, zone)
-    await do_backup("upload")
     ok(f"Neighborhood '{name}' added with ID {row_id}.")
 
 
-async def handle_add_seller() -> None:
-    await do_backup("download")
+def handle_add_seller() -> None:
     header("Add Seller")
     name = prompt("Full name")
     phone = prompt("Phone")
     email = prompt("E-mail")
     row_id = add_seller(name, phone, email)
-    await do_backup("upload")
     ok(f"Seller '{name}' added with ID {row_id}.")
 
 
-async def handle_add_condo() -> None:
-    await do_backup("download")
+def handle_add_condo() -> None:
     header("Add Condo")
     name = prompt("Name")
     address = prompt("Address")
     infra = prompt("Infrastructure (e.g. pool, gym, security)")
     neighborhood_id = prompt_int("Neighborhood ID")
     row_id = add_condo(name, address, infra, neighborhood_id)
-    await do_backup("upload")
     ok(f"Condo '{name}' added with ID {row_id}.")
 
 
 async def handle_add_property() -> None:
-    await do_backup("download")
     header("Add Property")
     print(f"  Types: {TIPOLOGIA_LABEL}")
     tipologia = TIPOLOGIA[prompt_int("Type")]
@@ -188,17 +178,14 @@ async def handle_add_property() -> None:
     size = prompt_int("Size (m2)")
     print(f"\n  Sun options: {SUN_OPTS_LABEL}")
     sun = SUN_OPTS[prompt_int("Sun exposure")]
-    # A pasta inicial (criada manualmente) deve estar no Desktop
     folder_name = prompt("Folder name")
     folder_path = DESKTOP_PATH / folder_name
     public_link = prompt("Google Drive public link")
-    # Captura a descrição do imóvel a partir do Desktop
     desc_file = folder_path / "Descrição.txt"
     if not desc_file.is_file():
         raise FileNotFoundError(f"'Descrição.txt' not found in '{folder_path}'.")
     description = desc_file.read_text(encoding="utf-8").strip()
 
-    # Carrega a pasta inicial para o drive público (se ainda não existir)
     drive_path = OP_DIR_PATH / folder_name
     if drive_path.exists():
         ok(f"Drive folder '{folder_name}' already exists — keeping it.")
@@ -206,7 +193,6 @@ async def handle_add_property() -> None:
         shutil.copytree(str(folder_path), str(drive_path))
         ok(f"Folder copied to '{OP_DIR_PATH}'.")
 
-    # Cadastra o imóvel já com as pastas configuradas
     imovel_id = add_property(
         tipologia,
         owner_id,
@@ -226,7 +212,6 @@ async def handle_add_property() -> None:
     )
     ok(f"Property added with ID {imovel_id}.")
 
-    # Cria uma pasta local dentro de /data/imoveis
     local_folder = (
         Path(__file__).resolve().parent.parent
         / "data"
@@ -235,18 +220,15 @@ async def handle_add_property() -> None:
     )
     shutil.copytree(str(folder_path), str(local_folder))
     ok(f"Folder copied to '{local_folder}'.")
-    # Vincula as fotos à pasta local
     inserted = add_photos(str(local_folder), imovel_id)
     ok(f"{len(inserted)} photo(s) registered.")
-    # Apaga a pasta inicial. Desnecessária após esse ponto
     shutil.rmtree(str(folder_path))
 
     _patch_txt(local_folder, imovel_id)
     _patch_txt(drive_path, imovel_id)
-    # Lê a descrição já com a ref injetada para sincronizar o banco
     new_desc = (local_folder / "Descrição.txt").read_text(encoding="utf-8").strip()
     update_field(imovel_id, "Descricao", new_desc)
-    await do_backup("upload", True)
+    await sync_photos("upload")
 
 
 # ─────────────────────────────────────────────
@@ -255,7 +237,6 @@ async def handle_add_property() -> None:
 
 
 async def handle_update_status() -> None:
-    await do_backup("download")
     header("Update Property Status")
     property_id = prompt_int("Property ID")
     prop = get_property(property_id)
@@ -270,7 +251,6 @@ async def handle_update_status() -> None:
     drive_path = get_drive_path(property_id)
 
     if status != "Disponível" and drive_path and drive_path.exists():
-        # Salva nome da pasta do Drive num .txt oculto na pasta local
         local_folder = get_folder_path(property_id)
         if local_folder:
             hidden = local_folder / ".drive_folder_name.txt"
@@ -279,7 +259,6 @@ async def handle_update_status() -> None:
         ok(f"Drive folder '{drive_path.name}' removed from 'Opções Diretas'.")
 
     elif status == "Disponível":
-        # FIX: não depende de drive_path (já deletado). Usa o .txt salvo localmente.
         local_folder = get_folder_path(property_id)
         if local_folder:
             hidden = local_folder / ".drive_folder_name.txt"
@@ -293,12 +272,11 @@ async def handle_update_status() -> None:
                 )
                 ok(f"Drive folder '{folder_name}' restored to 'Opções Diretas'.")
 
-    await do_backup("upload", True)
+    await sync_photos("upload")
     ok(f"Property {property_id} marked as '{status}'.")
 
 
-async def handle_update_prices() -> None:
-    await do_backup("download")
+def handle_update_prices() -> None:
     header("Update Prices")
     print("  Leave blank to keep current value.")
     imovel_id = prompt_int("Property ID")
@@ -309,7 +287,6 @@ async def handle_update_prices() -> None:
     local_folder = get_folder_path(imovel_id)
     drive_folder = get_drive_path(imovel_id)
 
-    # Atualiza Descrição.txt local
     if local_folder:
         update_description_prices(local_folder, price, condo_fee, tax)
         description = (
@@ -318,28 +295,23 @@ async def handle_update_prices() -> None:
     else:
         description = None
 
-    # Atualiza Descrição.txt no Drive se pasta existir
     if drive_folder and drive_folder.exists():
         update_description_prices(drive_folder, price, condo_fee, tax)
     update_prices(imovel_id, price, condo_fee, tax, description)
-    await do_backup("upload", True)
     ok(f"Prices updated for property {imovel_id}.")
 
 
-async def handle_update_field() -> None:
-    await do_backup("download")
+def handle_update_field() -> None:
     header("Correct a Field")
     print(f"  Updatable fields: {', '.join(sorted(IMOVEIS_UPDATABLE))}")
     imovel_id = prompt_int("Property ID")
     field = prompt("Field name")
     value = prompt("New value")
     update_field(imovel_id, field, value)
-    await do_backup("upload", True)
     ok(f"Field '{field}' updated for property {imovel_id}.")
 
 
-async def handle_update_condo_name() -> None:
-    await do_backup("download")
+def handle_update_condo_name() -> None:
     header("Update Condo Name")
     condo_id = prompt_int("Condo ID")
     name = prompt("New name")
@@ -349,6 +321,9 @@ async def handle_update_condo_name() -> None:
 
 # ─────────────────────────────────────────────
 #  Handlers — SHOW
+#  NOTA: dict_row do psycopg retorna chaves em minúsculo (o Postgres
+#  normaliza identificadores não-quotados) — por isso prop["ImovelID"]
+#  virou prop["imovelid"], etc.
 # ─────────────────────────────────────────────
 
 
@@ -361,14 +336,14 @@ def handle_find_property() -> None:
         err("Property not found.")
         return
 
-    tipology = prop["Tipologia"]
-    rooms = prop["Quartos"]
-    metragem = prop["Metragem"]
-    value = prop["Valor"]
-    owner = get_owner(prop["ProprietarioID"])
-    condo_name = display_na(get_condo_name(prop["CondominioID"]))
-    neighborhood_name = display_na(get_neighborhood_name(prop["BairroID"]))
-    status = prop["ImovelStatus"]
+    tipology = prop["tipologia"]
+    rooms = prop["quartos"]
+    metragem = prop["metragem"]
+    value = prop["valor"]
+    owner = get_owner(prop["proprietarioid"])
+    condo_name = display_na(get_condo_name(prop["condominioid"]))
+    neighborhood_name = display_na(get_neighborhood_name(prop["bairroid"]))
+    status = prop["imovelstatus"]
     local_folder = get_folder_path(property_id)
     public = display_na(get_public_link(property_id))
 
@@ -380,8 +355,8 @@ def handle_find_property() -> None:
   Quartos: {rooms}        Status: {status}
   Valor: R$ {value}
 {DIV}
-  Proprietário: {owner["Nome"]}
-  Telefone: {owner["Telefone"]}
+  Proprietário: {owner["nome"]}
+  Telefone: {owner["telefone"]}
 {DIV}
   Link público: {public}
 {DIV}""")
@@ -397,9 +372,9 @@ def handle_find_property_by_neighborhood() -> None:
     neighborhood_name = display_na(get_neighborhood_name(neighborhood_id))
     prop_list = get_property_by_neighborhood(neighborhood_id)
     for prop in prop_list:
-        condo_name = display_na(get_condo_name(prop["CondominioID"]))
+        condo_name = display_na(get_condo_name(prop["condominioid"]))
         print(
-            f"  ID:{prop['ImovelID']} | {condo_name} | {neighborhood_name} | {prop['Tipologia']} | R$ {prop['Valor']} | {prop['Quartos']}qts\n{DIV}"
+            f"  ID:{prop['imovelid']} | {condo_name} | {neighborhood_name} | {prop['tipologia']} | R$ {prop['valor']} | {prop['quartos']}qts\n{DIV}"
         )
     prompt("Enter to return")
 
@@ -410,9 +385,9 @@ def handle_find_property_by_condo() -> None:
     prop_list = get_property_by_condo(condo_id)
     condo_name = display_na(get_condo_name(condo_id))
     for prop in prop_list:
-        neighborhood_name = display_na(get_neighborhood_name(prop["BairroID"]))
+        neighborhood_name = display_na(get_neighborhood_name(prop["bairroid"]))
         print(
-            f"  ID:{prop['ImovelID']} | {condo_name} | {neighborhood_name} | {prop['Tipologia']} | R$ {prop['Valor']} | {prop['Quartos']}qts\n{DIV}"
+            f"  ID:{prop['imovelid']} | {condo_name} | {neighborhood_name} | {prop['tipologia']} | R$ {prop['valor']} | {prop['quartos']}qts\n{DIV}"
         )
     prompt("Enter to return")
 
@@ -423,10 +398,10 @@ def handle_show_available_properties() -> None:
     if not prop_list:
         print("  No available properties.")
     for prop in prop_list:
-        condo_name = display_na(get_condo_name(prop["CondominioID"]))
-        neighborhood_name = display_na(get_neighborhood_name(prop["BairroID"]))
+        condo_name = display_na(get_condo_name(prop["condominioid"]))
+        neighborhood_name = display_na(get_neighborhood_name(prop["bairroid"]))
         print(
-            f"  ID:{prop['ImovelID']} | {condo_name} | {neighborhood_name} | {prop['Tipologia']} | R$ {prop['Valor']} | {prop['Quartos']}qts\n{DIV}"
+            f"  ID:{prop['imovelid']} | {condo_name} | {neighborhood_name} | {prop['tipologia']} | R$ {prop['valor']} | {prop['quartos']}qts\n{DIV}"
         )
     prompt("Enter to return")
 
@@ -440,9 +415,9 @@ def handle_find_owner() -> None:
         return
     print(f"""
 {DIV}
-  ID:{owner_id} | {owner["Nome"]}
-  Telefone: {owner["Telefone"]}
-  E-mail: {display_na(owner["Email"])}
+  ID:{owner_id} | {owner["nome"]}
+  Telefone: {owner["telefone"]}
+  E-mail: {display_na(owner["email"])}
 {DIV}""")
     prompt("Enter to return")
 
@@ -473,10 +448,6 @@ HANDLERS = {
 
 
 async def main() -> None:
-    header("Syncing database...")
-    await do_backup("download")
-    ok("Sync complete.")
-
     while True:
         print(MENU)
         try:
@@ -507,7 +478,7 @@ async def main() -> None:
                 err(f"Allowed fields: {', '.join(sorted(IMOVEIS_UPDATABLE))}")
         except LookupError as e:
             err(str(e))
-        except sqlite3.IntegrityError as e:
+        except psycopg.IntegrityError as e:
             err(f"Database integrity error — {e}")
         except (NotADirectoryError, FileNotFoundError) as e:
             err(str(e))

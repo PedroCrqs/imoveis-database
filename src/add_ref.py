@@ -2,21 +2,20 @@
 add_ref.py
 ----------
 Injeta '_Ref: {ImovelID}_' na terceira linha de todas as descrições,
-sincronizando .db, Descrição.txt local e Descrição.txt no Drive.
+sincronizando o banco, o Descrição.txt local e o Descrição.txt no Drive.
 
 Restrito a imóveis com status 'Disponível'.
 Idempotente: pula imóveis que já estão sincronizados nos três lugares.
 """
 
 import re
-import sqlite3
 import unicodedata
 import asyncio
 from pathlib import Path
 
-from database import DB_PATH
+from database import pool
 from repository import get_folder_path, get_drive_path
-from backup import do_backup
+from backup import sync_photos
 
 REF_PATTERN = re.compile(r"^_Ref: \d+_$", re.MULTILINE)
 
@@ -88,10 +87,9 @@ def _read_txt(folder: Path) -> str | None:
 def add_ref_to_all() -> None:
     """
     Percorre todos os imóveis com status 'Disponível' e garante que a ref
-    está nos três lugares: .db, Descrição.txt local e Descrição.txt no Drive.
+    está nos três lugares: banco, Descrição.txt local e Descrição.txt no Drive.
     """
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
+    with pool.connection() as conn:
         rows = conn.execute(
             "SELECT ImovelID, Descricao FROM Imoveis WHERE ImovelStatus = 'Disponível'"
         ).fetchall()
@@ -101,10 +99,10 @@ def add_ref_to_all() -> None:
     updated_drive = 0
     skipped = 0
 
-    with sqlite3.connect(DB_PATH) as conn:
+    with pool.connection() as conn:
         for row in rows:
-            imovel_id = row["ImovelID"]
-            descricao = row["Descricao"]
+            imovel_id = row["imovelid"]
+            descricao = row["descricao"]
 
             # ── .txt local ────────────────────────────────────────────────────
             local_folder = get_folder_path(imovel_id)
@@ -117,14 +115,11 @@ def add_ref_to_all() -> None:
                 updated_drive += 1
 
             # ── banco ─────────────────────────────────────────────────────────
-            # Usa o .txt local como fonte da verdade (já patchado acima).
-            # Se o banco já tem ref, pula. Caso contrário, sincroniza.
             if REF_PATTERN.search(descricao):
                 skipped += 1
                 print(f"  [SKIP] ID {imovel_id} — banco já sincronizado.")
                 continue
 
-            # Tenta ler do .txt local; fallback para injetar direto na string do banco
             new_desc = _read_txt(local_folder) or _inject_ref(descricao, imovel_id)
 
             if new_desc is None:
@@ -132,12 +127,10 @@ def add_ref_to_all() -> None:
                 continue
 
             conn.execute(
-                "UPDATE Imoveis SET Descricao = ? WHERE ImovelID = ?",
+                "UPDATE Imoveis SET Descricao = %s WHERE ImovelID = %s",
                 (new_desc.strip(), imovel_id),
             )
             updated_db += 1
-
-        conn.commit()
 
     print(
         f"\n✔️  Concluído — "
@@ -150,4 +143,4 @@ def add_ref_to_all() -> None:
 
 if __name__ == "__main__":
     add_ref_to_all()
-    asyncio.run(do_backup("upload", True))  # backup no drive
+    asyncio.run(sync_photos("upload"))

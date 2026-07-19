@@ -1,5 +1,4 @@
-import sqlite3
-from database import DB_PATH
+from database import pool
 
 
 def populate_bairros() -> None:
@@ -17,12 +16,11 @@ def populate_bairros() -> None:
         ("Copacabana", "Zona Sul"),
     ]
 
-    with sqlite3.connect(DB_PATH) as conn:
+    with pool.connection() as conn:
         cursor = conn.cursor()
         cursor.executemany(
-            "INSERT INTO Bairros (Nome, BairroZona) VALUES (?, ?)", bairros
+            "INSERT INTO Bairros (Nome, BairroZona) VALUES (%s, %s)", bairros
         )
-        conn.commit()
         print(f"[OK] {cursor.rowcount} neighborhoods successfully added.")
 
 
