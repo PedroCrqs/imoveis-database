@@ -7,7 +7,7 @@ from pathlib import Path
 import psycopg
 
 from add_ref import _inject_ref, _patch_txt
-from backup import DRIVE_DIR, sync_photos, update_description_prices
+from backup import DRIVE_DIR, sync, update_description_prices
 from repository import (
     IMOVEIS_UPDATABLE,
     VALID_STATUS,
@@ -228,7 +228,8 @@ async def handle_add_property() -> None:
     _patch_txt(drive_path, imovel_id)
     new_desc = (local_folder / "Descrição.txt").read_text(encoding="utf-8").strip()
     update_field(imovel_id, "Descricao", new_desc)
-    await sync_photos("upload")
+    await sync("upload")
+
 
 
 # ─────────────────────────────────────────────
@@ -272,7 +273,7 @@ async def handle_update_status() -> None:
                 )
                 ok(f"Drive folder '{folder_name}' restored to 'Opções Diretas'.")
 
-    await sync_photos("upload")
+    await sync("upload")
     ok(f"Property {property_id} marked as '{status}'.")
 
 
@@ -449,6 +450,9 @@ HANDLERS = {
 
 async def main() -> None:
     while True:
+        print("\nSyncing with Google Drive...")
+        await sync('download')
+        print("Sync complete.\n")
         print(MENU)
         try:
             choice = prompt_int("Select an option")
