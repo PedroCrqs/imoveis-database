@@ -71,10 +71,12 @@ services:
     tty: true
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      DRIVE_DIR: /drive
+      DRIVE_DIR: /home/pedrocrqs/majesto-drive
     volumes:
       # data/imoveis/ é o arquivo LOCAL permanente (todas as fotos, todos os
       # status) — nunca fica dentro do /drive. Isso não muda com o rclone.
+      - /home/pedrocrqs/main-project-database/imoveis-database/data:/app/data
+      - /home/pedrocrqs/majesto-drive:/home/pedrocrqs/majesto-drive
       - ./data:/app/data
       - type: bind
         source: ./drive-mount

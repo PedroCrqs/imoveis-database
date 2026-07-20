@@ -276,7 +276,7 @@ async def handle_update_status() -> None:
     ok(f"Property {property_id} marked as '{status}'.")
 
 
-def handle_update_prices() -> None:
+async def handle_update_prices() -> None:
     header("Update Prices")
     print("  Leave blank to keep current value.")
     imovel_id = prompt_int("Property ID")
@@ -298,32 +298,38 @@ def handle_update_prices() -> None:
     if drive_folder and drive_folder.exists():
         update_description_prices(drive_folder, price, condo_fee, tax)
     update_prices(imovel_id, price, condo_fee, tax, description)
+
+    # Sincroniza as alterações de preço/descrição para o Drive
+    await sync_photos("upload")
     ok(f"Prices updated for property {imovel_id}.")
 
 
-def handle_update_field() -> None:
+async def handle_update_field() -> None:
     header("Correct a Field")
     print(f"  Updatable fields: {', '.join(sorted(IMOVEIS_UPDATABLE))}")
     imovel_id = prompt_int("Property ID")
     field = prompt("Field name")
     value = prompt("New value")
     update_field(imovel_id, field, value)
+
+    # Sincroniza correções de campos para o Drive
+    await sync_photos("upload")
     ok(f"Field '{field}' updated for property {imovel_id}.")
 
 
-def handle_update_condo_name() -> None:
+async def handle_update_condo_name() -> None:
     header("Update Condo Name")
     condo_id = prompt_int("Condo ID")
     name = prompt("New name")
     update_condo_name(condo_id, name)
+
+    # Sincroniza alterações estruturais para o Drive
+    await sync_photos("upload")
     ok(f"Condo name updated for condo {condo_id}.")
 
 
 # ─────────────────────────────────────────────
 #  Handlers — SHOW
-#  NOTA: dict_row do psycopg retorna chaves em minúsculo (o Postgres
-#  normaliza identificadores não-quotados) — por isso prop["ImovelID"]
-#  virou prop["imovelid"], etc.
 # ─────────────────────────────────────────────
 
 
@@ -449,6 +455,7 @@ HANDLERS = {
 
 async def main() -> None:
     while True:
+        await sync_photos("download")
         print(MENU)
         try:
             choice = prompt_int("Select an option")
