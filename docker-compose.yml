@@ -50,11 +50,11 @@ services:
       -c "
       mkdir -p /drive &&
       echo 'user_allow_other' >> /etc/fuse.conf &&
-      rclone mount majesto-drive: /drive
-        --allow-other
-        --allow-non-empty
-        --vfs-cache-mode writes
-        --dir-cache-time 30s
+      rclone mount majesto-drive: /drive \
+        --allow-other \
+        --allow-non-empty \
+        --vfs-cache-mode writes \
+        --dir-cache-time 30s \
         --poll-interval 30s
       "
     healthcheck:
