@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - ./pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     networks:
       - imoveis-net
     healthcheck:
@@ -15,95 +15,39 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    # Porta exposta só em localhost, não na rede pública — uso é acesso
-    # administrativo via túnel SSH (ex: `ssh -L 5432:localhost:5432 servidor`),
-    # nunca direto pela internet. Remova se nem isso for necessário.
     ports:
       - "127.0.0.1:5432:5432"
 
-  # ── rclone mount do Google Drive, rodando dentro do próprio Docker.
-  # Exige FUSE + propagação de mount "rshared" pra ficar visível também no
-  # imoveis-cli. Se isso se mostrar instável no servidor real, a alternativa
-  # mais robusta é montar via systemd no HOST e só dar bind-mount da pasta
-  # já montada — sem FUSE dentro de container nenhum.
-  drive:
-    image: rclone/rclone:latest
-    restart: unless-stopped
-    # ⚠️ "majesto-drive" abaixo precisa bater com o nome do remote no seu
-    # rclone.conf. Confira com `rclone listremotes` (ou `cat rclone.conf`)
-    # antes de subir — se for outro nome, ajuste no comando abaixo.
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
-    volumes:
-      - ./rclone/rclone.conf:/config/rclone/rclone.conf:ro
-      - type: bind
-        source: ./drive-mount
-        target: /drive
-        bind:
-          propagation: rshared
-    entrypoint: sh
-    command: >
-      -c "
-      mkdir -p /drive &&
-      echo 'user_allow_other' >> /etc/fuse.conf &&
-      rclone mount majesto-drive: /drive \
-        --allow-other \
-        --allow-non-empty \
-        --vfs-cache-mode writes \
-        --dir-cache-time 30s \
-        --poll-interval 30s
-      "
-    healthcheck:
-      test: ["CMD-SHELL", "mountpoint -q /drive || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-
   imoveis-cli:
     build: .
-    restart: "no" # é um CLI interativo, não um serviço de longa duração
+    container_name: imoveis-database-imoveis-cli-1
+    user: "1000:1000"
+    restart: "no"
     stdin_open: true
     tty: true
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       DRIVE_DIR: /home/pedrocrqs/majesto-drive
     volumes:
-      # data/imoveis/ é o arquivo LOCAL permanente (todas as fotos, todos os
-      # status) — nunca fica dentro do /drive. Isso não muda com o rclone.
-      - /home/pedrocrqs/main-project-database/imoveis-database/data:/app/data
-      - /home/pedrocrqs/majesto-drive:/home/pedrocrqs/majesto-drive
       - ./data:/app/data
-      - type: bind
-        source: ./drive-mount
-        target: /drive
-        bind:
-          propagation: rshared
+      - /home/pedrocrqs/majesto-drive:/home/pedrocrqs/majesto-drive:rshared
     depends_on:
       db:
-        condition: service_healthy
-      drive:
         condition: service_healthy
     networks:
       - imoveis-net
 
-  # ── Robô de disparo (wpp-scheduler) — 3 contas rodando em paralelo.
-  # Cada uma é seu próprio container: sessão do WhatsApp (LocalAuth) e
-  # process.argv[2] diferentes, mas compartilham o mesmo Postgres — a
-  # coordenação entre elas (não reservar o mesmo imóvel 2x) é feita via
-  # transação no banco, não precisa de nada especial aqui.
   wpp-account1:
+    user: "1000:1000"
     build: ../wpp-scheduler
     command: ["account1"]
+    shm_size: '2gb'
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - INSTANCE=account1
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     volumes:
-      - ../wpp-scheduler/data:/app/data
+      - ../wpp-scheduler/data:/app/data  # <--- SEPARADO (wpp1)
     depends_on:
       db:
         condition: service_healthy
@@ -112,12 +56,15 @@ services:
 
   wpp-account2:
     build: ../wpp-scheduler
+    user: "1000:1000"
+    shm_size: '2gb'
     command: ["account2"]
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - INSTANCE=account2
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     volumes:
-      - ../wpp-scheduler/data:/app/data
+      - ../wpp-scheduler/data:/app/data  # <--- SEPARADO (wpp2)
     depends_on:
       db:
         condition: service_healthy
@@ -125,47 +72,24 @@ services:
       - imoveis-net
 
   wpp-account3:
+    user: "1000:1000"
+    shm_size: '2gb'
     build: ../wpp-scheduler
     command: ["account3"]
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - INSTANCE=account3
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     volumes:
-      - ../wpp-scheduler/data:/app/data
+      - ../wpp-scheduler/data:/app/data  # <--- SEPARADO (wpp3)
     depends_on:
       db:
         condition: service_healthy
     networks:
       - imoveis-net
-
-  # ── Os 2 serviços abaixo ficam de fora até você trazer o código deles.
-  # Compartilham a mesma rede `imoveis-net` e falam com o Postgres via
-  # DATABASE_URL, apontando para o host interno "db" (nunca "localhost").
-  #
-  # site:
-  #   build: ../site
-  #   restart: unless-stopped
-  #   environment:
-  #     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   networks:
-  #     - imoveis-net
-  #   ports:
-  #     - "8000:8000"
-  #
-  # sentinela:
-  #   build: ../sentinela
-  #   restart: unless-stopped
-  #   environment:
-  #     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   networks:
-  #     - imoveis-net
-
 networks:
   imoveis-net:
     driver: bridge
+
+volumes:
+  pgdata:

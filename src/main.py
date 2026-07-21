@@ -454,8 +454,9 @@ HANDLERS = {
 
 
 async def main() -> None:
+    print('Syncing database...')
+    await sync_photos("download")
     while True:
-        await sync_photos("download")
         print(MENU)
         try:
             choice = prompt_int("Select an option")

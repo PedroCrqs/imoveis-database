@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from database import pool
+from database import DATA_PATH, pool
 
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
@@ -280,16 +280,22 @@ def get_neighborhood_name(neighborhood_id: int | None) -> str | None:
 #  PATHS
 # ─────────────────────────────────────────────
 def get_folder_path(property_id: int) -> Path | None:
-    """Retorna o Path da pasta local do imóvel."""
+    """Retorna o Path da pasta local do imóvel baseada na estrutura padrão do container."""
+    folder = Path(__file__).resolve().parent.parent / "data" / "imoveis" / f"imovel_{property_id}"
+    if folder.is_dir():
+        return folder
+    
     with pool.connection() as conn:
         row = conn.execute(
             "SELECT CaminhoArquivo FROM Fotos WHERE ImovelID = %s LIMIT 1",
             (property_id,),
         ).fetchone()
         if row:
-            return Path(row["caminhoarquivo"]).parent
-        return None
-
+            fallback_path = Path(row["caminhoarquivo"]).parent
+            if fallback_path.is_dir():
+                return fallback_path
+                
+    return None
 
 def get_drive_path(property_id: int) -> Path | None:
     """Retorna o Path da pasta do imóvel no Drive."""
