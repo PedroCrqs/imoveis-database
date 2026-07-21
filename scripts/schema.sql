@@ -163,6 +163,7 @@ CREATE TABLE IF NOT EXISTS opportunities (
     buyer_message_id VARCHAR(255) REFERENCES raw_messages(message_id) ON DELETE CASCADE,
     matched_imovel_id INTEGER REFERENCES Imoveis(ImovelID) ON DELETE CASCADE,
     match_score NUMERIC(5, 2),
+    match_details JSONB NOT NULL DEFAULT '{}'::jsonb,
     dispatch_status VARCHAR(20) DEFAULT 'QUEUED',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
