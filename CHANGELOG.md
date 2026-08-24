@@ -9,6 +9,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [1.7.0] — 2026-08-24
+
+#### Adicionado
+
+- **`sync_descricoes.py`**: novo script (`scripts/`) que sincroniza a coluna `Descricao` dos imóveis com status `Disponível` a partir do arquivo `Descrição.txt` de cada imóvel. Fonte única de verdade: `Imoveis.CaminhoDrive` (pasta sincronizada via rclone) — a pasta local não é usada de propósito. Roda em modo dry-run por padrão; usa `--apply` para persistir as alterações no banco
+
+#### Corrigido
+
+- **Carregamento de variáveis de ambiente em `database.py`**: `DATABASE_URL` era lido diretamente de `os.environ`, sem chamada a `load_dotenv()`. Como o `.env` nunca era carregado, a conexão sempre caía no valor padrão hardcoded (`postgres:postgres@localhost`), causando falha de autenticação (`password authentication failed for user "postgres"`) mesmo com credenciais corretas no `.env`. Corrigido com `load_dotenv(BASE_DIR / ".env")`, usando caminho absoluto para não depender do diretório de onde o script é executado
+- **`CaminhoDrive` duplicado entre imóveis diferentes**: identificado, durante a primeira execução do `sync_descricoes.py`, que os imóveis 74 e 95 apontavam para a mesma pasta no Drive (`.../Prédio Baixo - Gleba B - Rua Demosthenes Madureira de Pinho`), fazendo o imóvel 95 receber a descrição do imóvel 74. Corrigido o valor de `CaminhoDrive` do imóvel 95 no banco para apontar para a pasta correta (`...de Pinho C`)
+
+---
+
 ### [1.6.0] — 2026-06-25
 
 #### Adicionado
@@ -163,6 +176,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [1.7.0] — 2026-08-24
+
+#### Added
+
+- **`sync_descricoes.py`**: new script (`scripts/`) that syncs the `Descricao` column for properties with status `Disponível` from each property's `Descrição.txt` file. Single source of truth: `Imoveis.CaminhoDrive` (folder synced via rclone) — the local folder is intentionally not used. Runs in dry-run mode by default; use `--apply` to persist changes to the database
+
+#### Fixed
+
+- **Environment variable loading in `database.py`**: `DATABASE_URL` was being read directly from `os.environ`, with no `load_dotenv()` call. Since the `.env` file was never loaded, the connection always fell back to the hardcoded default (`postgres:postgres@localhost`), causing authentication failures (`password authentication failed for user "postgres"`) even with correct credentials in `.env`. Fixed with `load_dotenv(BASE_DIR / ".env")`, using an absolute path so it doesn't depend on the directory the script is run from
+- **Duplicate `CaminhoDrive` across different properties**: identified, during the first run of `sync_descricoes.py`, that properties 74 and 95 pointed to the same Drive folder (`.../Prédio Baixo - Gleba B - Rua Demosthenes Madureira de Pinho`), causing property 95 to receive property 74's description. Fixed property 95's `CaminhoDrive` value in the database to point to the correct folder (`...de Pinho C`)
 
 ---
 
