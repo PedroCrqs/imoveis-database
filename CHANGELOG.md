@@ -9,7 +9,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
-### [1.7.0] — 2026-08-24
+### [2.1.1] — 2026-08-28
+
+#### Corrigido
+
+- **`Fotos.Principal` incompatível com Postgres em `add_photos()`**: o insert enviava um `bool` nativo do Python (`photo.stem == "0"`), mas a coluna `Principal` no banco real é `SMALLINT` (herdada da migração do SQLite, que não possui tipo `boolean`) — nunca foi convertida para `boolean` de fato, apesar do `schema.sql` declarar isso desde a v2.0.0. O erro (`column "principal" is of type smallint but expression is of type boolean`) só surgiu no imóvel 102, primeiro cadastro cuja pasta continha um arquivo `0.jpg`/`0.png` (capa = `True`); com `False`, o bug ficava mascarado. Corrigido convertendo o valor para `int` antes do insert (`int(photo.stem == "0")`)
+- **`schema.sql` desatualizado em relação ao banco real**: declaração de `Fotos.Principal` corrigida de `BOOLEAN DEFAULT FALSE` para `SMALLINT DEFAULT 0`, refletindo o tipo real da coluna em produção. Sem efeito no banco já existente (`CREATE TABLE IF NOT EXISTS` não altera tabelas criadas) — mudança apenas documental, para impedir a mesma confusão de diagnóstico no futuro
+
+---
+
+### [2.1.0] — 2026-08-24
 
 #### Adicionado
 
@@ -19,6 +28,40 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 - **Carregamento de variáveis de ambiente em `database.py`**: `DATABASE_URL` era lido diretamente de `os.environ`, sem chamada a `load_dotenv()`. Como o `.env` nunca era carregado, a conexão sempre caía no valor padrão hardcoded (`postgres:postgres@localhost`), causando falha de autenticação (`password authentication failed for user "postgres"`) mesmo com credenciais corretas no `.env`. Corrigido com `load_dotenv(BASE_DIR / ".env")`, usando caminho absoluto para não depender do diretório de onde o script é executado
 - **`CaminhoDrive` duplicado entre imóveis diferentes**: identificado, durante a primeira execução do `sync_descricoes.py`, que os imóveis 74 e 95 apontavam para a mesma pasta no Drive (`.../Prédio Baixo - Gleba B - Rua Demosthenes Madureira de Pinho`), fazendo o imóvel 95 receber a descrição do imóvel 74. Corrigido o valor de `CaminhoDrive` do imóvel 95 no banco para apontar para a pasta correta (`...de Pinho C`)
+
+---
+
+### [2.0.0] — 2026-08-24
+
+#### Adicionado
+
+- **Migração completa de SQLite para PostgreSQL**: `database.py` reescrito com `psycopg` (v3) e `psycopg_pool.ConnectionPool` compartilhado por todo o processo. `repository.py` totalmente adaptado — placeholders `?` → `%s`, `cursor.lastrowid` → `RETURNING`, `row_factory=dict_row` para acesso estruturado por chaves
+- **`schema.sql` traduzido para PL/pgSQL**: `AUTOINCREMENT` → `SERIAL`; triggers convertidas para `FUNCTION` + `TRIGGER` (`log_imovel_insert`, `log_imovel_update_status`, `log_imovel_update_valor`)
+- **Trigger e índices recuperados**: `log_imovel_update_valor` (perdida em traduções anteriores) restaurada, junto com `idx_auditoria_imovel`, `idx_dispatched_date`, `idx_cycle_instance`
+- **`migrate_sqlite_to_pg.py`**: script de migração respeitando a ordem de Chaves Estrangeiras (`Proprietarios → Bairros → Condominios → Imoveis → Fotos → Auditoria_Imoveis → Dispatched_Today → Dispatch_Cycle`), com triggers de auditoria desativadas durante a cópia (`ALTER TABLE ... DISABLE/ENABLE TRIGGER ALL`), transação única com rollback integral em caso de falha, e realinhamento de sequences ao final
+- **Dockerização**: `Dockerfile` (`python:3.12-slim` + `psycopg[binary]`) e `docker-compose.yml` orquestrando Postgres 16 (`db`), a CLI (`imoveis-cli`) e as 3 instâncias do robô de disparo (`wpp-account1/2/3`) — todos os serviços rodando como usuário não-root (`user: "1000:1000"`); `shm_size: 2gb` adicionado aos bots para evitar crashes do Chromium/Puppeteer por `/dev/shm` insuficiente
+- **`.dockerignore`**: exclui diretórios de dados/runtime (`pgdata/`, `data/`, `drive-mount/`) do contexto de build
+
+#### Removido
+
+- **Sincronização do arquivo `.db` via Drive**: `backup.py` não copia mais o SQLite de/para o Google Drive — o Postgres é acessado diretamente por todos os serviços (CLI, site, robôs). A sincronização de fotos (`sync_photos`, upload/download em lote entre `data/imoveis/` e a pasta do Drive) permanece e foi **testada e confirmada funcionando** após a migração
+
+#### Corrigido
+
+- **Mapeamento de colunas**: `add_condo()` usava a coluna legada com cedilha (`Endereço`) em vez do nome correto no Postgres (`Endereco`); typo histórico em `update_condo_name()` corrigido
+- **Tipos incompatíveis com o Postgres**: cast explícito de `Fotos.Principal` (inteiro 0/1 no SQLite) para `bool` antes do `INSERT`
+- **Case-folding causando `relation "Proprietarios" does not exist`**: `migrate_sqlite_to_pg.py` envolvia tabelas/colunas em aspas duplas, tornando-as case-sensitive, enquanto o `schema.sql` as cria sem aspas (Postgres dobra para minúsculo automaticamente). Corrigido removendo as aspas no `INSERT`, no `DISABLE/ENABLE TRIGGER`, e com `.lower()` explícito em `pg_get_serial_sequence()` (que recebe os nomes como string literal, sem passar pelo fold de case do parser SQL)
+- **Sintaxe YAML inválida em `environment` dos `wpp-account1/2/3`**: mistura de sintaxe de lista com sintaxe de mapa no mesmo bloco, causando falha no `docker compose up -d`. Corrigido padronizando para `- CHAVE=valor`
+
+#### Conhecido / pendências desta versão
+
+> Itens abaixo **não foram validados em produção** e não devem ser lidos como resolvidos — documentados aqui para rastreabilidade.
+
+- **`DESKTOP_PATH` (`/home/pedrocrqs/Desktop`) hardcoded em `main.py`, sem bind-mount correspondente no `docker-compose.yml`**: o fluxo de cadastro de imóvel novo (que depende dessa pasta de staging) ainda não foi testado dentro do container — provável falha até o volume ser adicionado
+- **`CaminhoDrive` legado com `~` literal nunca expande**: nenhuma chamada a `.expanduser()` existe no código. Imóveis cadastrados antes da migração, com `CaminhoDrive` salvo como `~/majesto-drive/...`, têm o path tratado literalmente pelo `pathlib` — afeta a gestão da pasta "Opções Diretas" em `handle_update_status()`. Diferente da sincronização em lote de fotos (que usa `DRIVE_DIR` diretamente e já foi testada), esse fluxo por imóvel ainda não foi exercitado
+- **Volumes de `wpp-account1/2/3` apontando para o mesmo caminho no host** (`../wpp-scheduler/data`), apesar de comentários no `docker-compose.yml` indicarem isolamento — separação real (subpasta por conta) ainda não aplicada
+- **`pgdata` migrado de bind-mount (`./pgdata`) para volume nomeado do Docker**: confirmar que os dados já migrados foram carregados para o volume novo antes de depender dele em produção
+- **Acesso ao Drive migrado de sidecar `rclone`+FUSE dentro do Docker para mount no host**: `imoveis-cli` agora recebe `/home/pedrocrqs/majesto-drive` via bind-mount (`DRIVE_DIR` aponta pra lá), assumindo que o `rclone` roda fora do container (ex: via systemd) — mais simples e testado para sync em lote, mas depende da configuração do host permanecer estável
 
 ---
 
@@ -179,7 +222,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-### [1.7.0] — 2026-08-24
+### [2.1.1] — 2026-08-28
+
+#### Fixed
+
+- **`Fotos.Principal` type mismatch with Postgres in `add_photos()`**: the insert sent a native Python `bool` (`photo.stem == "0"`), but the `Principal` column in the real database is `SMALLINT` (inherited from the SQLite migration, which has no `boolean` type) — it was never actually converted to `boolean`, despite `schema.sql` declaring it as such since v2.0.0. The error (`column "principal" is of type smallint but expression is of type boolean`) only surfaced on property 102, the first registration whose folder contained a `0.jpg`/`0.png` file (cover = `True`); with `False`, the bug stayed masked. Fixed by converting the value to `int` before the insert (`int(photo.stem == "0")`)
+- **`schema.sql` out of sync with the real database**: `Fotos.Principal` declaration corrected from `BOOLEAN DEFAULT FALSE` to `SMALLINT DEFAULT 0`, reflecting the column's actual type in production. No effect on the existing database (`CREATE TABLE IF NOT EXISTS` doesn't alter already-created tables) — documentation-only change, to prevent the same diagnostic confusion in the future
+
+---
+
+### [2.1.0] — 2026-08-24
 
 #### Added
 
@@ -189,6 +241,40 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Environment variable loading in `database.py`**: `DATABASE_URL` was being read directly from `os.environ`, with no `load_dotenv()` call. Since the `.env` file was never loaded, the connection always fell back to the hardcoded default (`postgres:postgres@localhost`), causing authentication failures (`password authentication failed for user "postgres"`) even with correct credentials in `.env`. Fixed with `load_dotenv(BASE_DIR / ".env")`, using an absolute path so it doesn't depend on the directory the script is run from
 - **Duplicate `CaminhoDrive` across different properties**: identified, during the first run of `sync_descricoes.py`, that properties 74 and 95 pointed to the same Drive folder (`.../Prédio Baixo - Gleba B - Rua Demosthenes Madureira de Pinho`), causing property 95 to receive property 74's description. Fixed property 95's `CaminhoDrive` value in the database to point to the correct folder (`...de Pinho C`)
+
+---
+
+### [2.0.0] — 2026-08-24
+
+#### Added
+
+- **Complete migration from SQLite to PostgreSQL**: `database.py` rewritten using `psycopg` (v3) with a `psycopg_pool.ConnectionPool` shared across the whole process. `repository.py` fully adapted — `?` placeholders → `%s`, `cursor.lastrowid` → `RETURNING`, `row_factory=dict_row` for structured key-based access
+- **`schema.sql` translated to PL/pgSQL**: `AUTOINCREMENT` → `SERIAL`; triggers converted to `FUNCTION` + `TRIGGER` (`log_imovel_insert`, `log_imovel_update_status`, `log_imovel_update_valor`)
+- **Recovered trigger and indexes**: `log_imovel_update_valor` (lost in earlier translations) restored, along with `idx_auditoria_imovel`, `idx_dispatched_date`, `idx_cycle_instance`
+- **`migrate_sqlite_to_pg.py`**: migration script respecting Foreign Key order (`Proprietarios → Bairros → Condominios → Imoveis → Fotos → Auditoria_Imoveis → Dispatched_Today → Dispatch_Cycle`), with audit triggers disabled during the copy (`ALTER TABLE ... DISABLE/ENABLE TRIGGER ALL`), a single transaction with full rollback on failure, and sequence realignment at the end
+- **Dockerization**: `Dockerfile` (`python:3.12-slim` + `psycopg[binary]`) and `docker-compose.yml` orchestrating Postgres 16 (`db`), the CLI (`imoveis-cli`), and the 3 dispatch bot instances (`wpp-account1/2/3`) — all services running as a non-root user (`user: "1000:1000"`); `shm_size: 2gb` added to the bots to prevent Chromium/Puppeteer crashes from insufficient `/dev/shm`
+- **`.dockerignore`**: excludes data/runtime directories (`pgdata/`, `data/`, `drive-mount/`) from the build context
+
+#### Removed
+
+- **`.db` file sync via Drive**: `backup.py` no longer copies the SQLite file to/from Google Drive — Postgres is accessed directly by all services (CLI, site, bots). Photo sync (`sync_photos`, bulk upload/download between `data/imoveis/` and the Drive folder) remains and has been **tested and confirmed working** after the migration
+
+#### Fixed
+
+- **Column mapping**: `add_condo()` used the legacy column with a cedilla (`Endereço`) instead of the correct Postgres name (`Endereco`); a long-standing typo in `update_condo_name()` fixed
+- **Types incompatible with Postgres**: explicit cast of `Fotos.Principal` (0/1 integer in SQLite) to `bool` before `INSERT`
+- **Case-folding causing `relation "Proprietarios" does not exist`**: `migrate_sqlite_to_pg.py` wrapped tables/columns in double quotes, making them case-sensitive, while `schema.sql` creates them unquoted (Postgres auto-folds to lowercase). Fixed by removing the quotes in the `INSERT`, in `DISABLE/ENABLE TRIGGER`, and with an explicit `.lower()` in `pg_get_serial_sequence()` (which takes names as string literals, bypassing the SQL parser's case-folding)
+- **Invalid YAML syntax in `wpp-account1/2/3`'s `environment`**: list syntax mixed with map syntax in the same block, causing `docker compose up -d` to fail. Fixed by standardizing to `- KEY=value`
+
+#### Known / pending in this version
+
+> The items below have **not been validated in production** and should not be read as resolved — documented here for traceability.
+
+- **`DESKTOP_PATH` (`/home/pedrocrqs/Desktop`) hardcoded in `main.py`, with no matching bind mount in `docker-compose.yml`**: the new-property registration flow (which depends on this staging folder) has not yet been tested inside the container — likely to fail until the volume is added
+- **Legacy `CaminhoDrive` values with a literal `~` never expand**: no `.expanduser()` call exists anywhere in the codebase. Properties registered before the migration, with `CaminhoDrive` stored as `~/majesto-drive/...`, have the path treated literally by `pathlib` — affects "Opções Diretas" folder management in `handle_update_status()`. Unlike the bulk photo sync (which uses `DRIVE_DIR` directly and has been tested), this per-property flow has not yet been exercised
+- **`wpp-account1/2/3` volumes pointing at the same host path** (`../wpp-scheduler/data`), despite inline comments in `docker-compose.yml` suggesting isolation — real separation (a distinct subfolder per account) is still pending
+- **`pgdata` moved from a bind mount (`./pgdata`) to a Docker-managed named volume**: confirm previously migrated data was carried over into the new volume before relying on this in production
+- **Drive access moved from an in-Docker `rclone`+FUSE sidecar to a host-level mount**: `imoveis-cli` now receives `/home/pedrocrqs/majesto-drive` via bind mount (`DRIVE_DIR` points there), assuming `rclone` runs outside the container (e.g. via systemd) — simpler, and tested for bulk sync, but depends on the host configuration remaining stable
 
 ---
 

@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS Fotos (
     FotoID         SERIAL PRIMARY KEY,
     ImovelID       INTEGER NOT NULL,
     CaminhoArquivo TEXT NOT NULL UNIQUE,
-    Principal      BOOLEAN DEFAULT FALSE,
+    Principal      SMALLINT DEFAULT 0, -- herdado do SQLite (0/1); não é boolean no banco real
     DataCadastro   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ImovelID) REFERENCES Imoveis (ImovelID) ON DELETE CASCADE
 );

@@ -128,7 +128,7 @@ def add_photos(folder_path: str, property_id: int) -> list[int]:
 
     with pool.connection() as conn:
         for photo in photos:
-            is_cover = photo.stem == "0"
+            is_cover = int(photo.stem == "0")  # Fotos.Principal é smallint, não boolean
             row = conn.execute(query, (property_id, str(photo), is_cover)).fetchone()
             inserted_ids.append(row["fotoid"])
 
@@ -284,7 +284,7 @@ def get_folder_path(property_id: int) -> Path | None:
     folder = Path(__file__).resolve().parent.parent / "data" / "imoveis" / f"imovel_{property_id}"
     if folder.is_dir():
         return folder
-    
+
     with pool.connection() as conn:
         row = conn.execute(
             "SELECT CaminhoArquivo FROM Fotos WHERE ImovelID = %s LIMIT 1",
@@ -294,7 +294,7 @@ def get_folder_path(property_id: int) -> Path | None:
             fallback_path = Path(row["caminhoarquivo"]).parent
             if fallback_path.is_dir():
                 return fallback_path
-                
+
     return None
 
 def get_drive_path(property_id: int) -> Path | None:
