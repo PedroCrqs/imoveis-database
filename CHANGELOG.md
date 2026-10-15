@@ -9,6 +9,33 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [2.2.0] — 2026-10-15
+
+#### Alterado
+
+- **`sync_descricoes.py` agora propaga o `Descrição.txt` para o Drive de armazenamento**: além de atualizar `Imoveis.Descricao` no banco, o script copia o arquivo da pasta de origem (`CaminhoDrive`, "Opções Diretas") para `DRIVE_DIR/imoveis/imovel_{id}/Descrição.txt`, mantendo as duas pastas do Drive em sincronia. A pasta local continua não sendo gravada pelo script — ela deve ser atualizada pelo `sync_photos("download")` ao iniciar a UI
+- **Ordem das operações**: arquivo primeiro, banco por último. Se a cópia falhar, o banco não é alterado e a próxima execução refaz o imóvel
+- Docstring e texto da flag `--apply` atualizados para refletir que o script agora também grava em arquivo
+
+#### Adicionado
+
+- **Tratamento de erro na escrita** (`--apply`): `FileNotFoundError` (pasta do imóvel ausente em `imoveis`), `OSError` (permissão, disco, rclone) e `psycopg.Error` (banco) são reportados por imóvel e contados em `Erros`, sem interromper o lote. O caminho de destino é o arquivo completo (`.../imovel_{id}/Descrição.txt`), o que impede o `shutil.copy2` de criar silenciosamente um arquivo `imovel_{id}` sem extensão quando a pasta não existe
+
+#### Corrigido
+
+- **`UPDATE` duplicado em `Imoveis.Descricao`**: a v2.1.0 gravava a descrição duas vezes por imóvel (via `update_prices` e via `UPDATE` direto). Mantido apenas o `UPDATE` direto, e a dependência de `update_prices` (que só foi desenhada para preços) foi removida do script
+- **Contador `Atualizados` impreciso**: o incremento ocorria antes da escrita, então uma falha contava o imóvel como atualizado e como erro ao mesmo tempo. Agora só conta após o sucesso (no dry-run, conta o que seria atualizado)
+
+#### Conhecido / pendências desta versão
+
+> Itens abaixo **não foram validados em produção** e não devem ser lidos como resolvidos.
+
+- O script foi exercitado com módulos simulados (sucesso, pasta ausente, dry-run e sem alteração), mas a execução real com `--apply` contra o Drive e o Postgres ainda não foi feita
+- A atualização da pasta local depende de a UI chamar `sync_photos("download")` ao iniciar; esse ponto não foi conferido no `main.py`
+- O critério `unchanged` compara apenas o arquivo de origem com o banco. Se o banco estiver correto mas a cópia em `imoveis` estiver defasada (ex.: banco alterado por outro caminho), o script não repara a cópia
+
+---
+
 ### [2.1.1] — 2026-08-28
 
 #### Corrigido
@@ -219,6 +246,33 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [2.2.0] — 2026-10-15
+
+#### Changed
+
+- **`sync_descricoes.py` now propagates `Descrição.txt` to the storage Drive folder**: besides updating `Imoveis.Descricao` in the database, the script copies the file from the source folder (`CaminhoDrive`, "Opções Diretas") to `DRIVE_DIR/imoveis/imovel_{id}/Descrição.txt`, keeping both Drive folders in sync. The local folder is still not written by the script — it should be refreshed by `sync_photos("download")` when the UI starts
+- **Operation order**: file first, database last. If the copy fails, the database is left untouched and the next run redoes the property
+- Docstring and `--apply` flag help text updated to reflect that the script now also writes to a file
+
+#### Added
+
+- **Write error handling** (`--apply`): `FileNotFoundError` (property folder missing in `imoveis`), `OSError` (permissions, disk, rclone) and `psycopg.Error` (database) are reported per property and counted under `Erros`, without aborting the batch. The destination is the full file path (`.../imovel_{id}/Descrição.txt`), which prevents `shutil.copy2` from silently creating an extensionless `imovel_{id}` file when the folder does not exist
+
+#### Fixed
+
+- **Duplicate `UPDATE` on `Imoveis.Descricao`**: v2.1.0 wrote the description twice per property (via `update_prices` and via a direct `UPDATE`). Only the direct `UPDATE` is kept, and the script's dependency on `update_prices` (designed for prices only) was removed
+- **Inaccurate `Atualizados` counter**: the increment happened before the write, so a failure counted the property as both updated and errored. It now counts only after success (in dry-run, it counts what would be updated)
+
+#### Known / pending items in this version
+
+> Items below **have not been validated in production** and should not be read as resolved.
+
+- The script was exercised with mocked modules (success, missing folder, dry-run and unchanged), but a real `--apply` run against Drive and Postgres has not been done yet
+- Refreshing the local folder depends on the UI calling `sync_photos("download")` on startup; this was not checked in `main.py`
+- The `unchanged` criterion only compares the source file with the database. If the database is correct but the copy in `imoveis` is stale (e.g. database changed through another path), the script does not repair the copy
 
 ---
 
