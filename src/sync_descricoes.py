@@ -1,20 +1,29 @@
 """
-Sincroniza a coluna Descricao dos imóveis com ImovelStatus = 'Disponível'
-com o conteúdo do arquivo "Descrição.txt" de cada imóvel.
+Sincroniza a descrição dos imóveis com ImovelStatus = 'Disponível'.
 
-Fonte única: CaminhoDrive (Imoveis.CaminhoDrive), a pasta sincronizada
-automaticamente pelo rclone. A pasta local (get_folder_path) não é usada
-aqui de propósito — o rclone é a fonte da verdade.
+Fonte da verdade: o arquivo "Descrição.txt" na pasta apontada por
+Imoveis.CaminhoDrive ("Opções Diretas", sincronizada pelo rclone).
+
+Para cada imóvel cuja descrição difere do banco, o script:
+  1. copia o arquivo para DRIVE_DIR/imoveis/imovel_{id}/ (armazenamento);
+  2. atualiza Imoveis.Descricao no banco (só depois de a cópia dar certo).
+
+A pasta local não é gravada aqui: ela é atualizada depois, pelo
+sync_photos("download") ao iniciar a UI.
 
 Uso:
     python scripts/sync_descricoes.py            # dry-run, não altera nada
-    python scripts/sync_descricoes.py --apply    # aplica as alterações no banco
+    python scripts/sync_descricoes.py --apply    # copia o arquivo e atualiza o banco
 """
 
 import argparse
+import shutil
 import sys
 from pathlib import Path
 
+import psycopg
+
+from backup import IMOVEIS_DRIVE
 from database import pool
 from repository import get_available_properties, get_drive_path
 
@@ -69,16 +78,40 @@ def sync_descriptions(apply: bool) -> None:
         print(
             f"[ATUALIZAR] Imóvel {property_id}: descrição muda "
             f"({len(current_description)} -> {len(new_description)} caracteres) "
-            f"[Drive: {desc_file}]"
+            f"[Origem: {desc_file}]"
         )
-        updated += 1
 
         if apply:
-            with pool.connection() as conn:
-                conn.execute(
-                    "UPDATE Imoveis SET Descricao = %s WHERE ImovelID = %s",
-                    (new_description, property_id),
-                )
+            # Caminho completo do arquivo: se a pasta não existir, o copy2 falha
+            # com FileNotFoundError em vez de criar um arquivo "imovel_X" solto.
+            destino = IMOVEIS_DRIVE / f"imovel_{property_id}" / DESC_FILENAME
+
+            # 1) Arquivo primeiro: se falhar, o banco não é tocado e a próxima
+            #    execução refaz o imóvel.
+            try:
+                shutil.copy2(desc_file, destino)
+            except FileNotFoundError:
+                print(f"[ERRO]      Imóvel {property_id}: pasta '{destino.parent}' não existe.")
+                errors += 1
+                continue
+            except OSError as exc:
+                print(f"[ERRO]      Imóvel {property_id}: falha ao copiar para '{destino}' ({exc}).")
+                errors += 1
+                continue
+
+            # 2) Banco por último.
+            try:
+                with pool.connection() as conn:
+                    conn.execute(
+                        "UPDATE Imoveis SET Descricao = %s WHERE ImovelID = %s",
+                        (new_description, property_id),
+                    )
+            except psycopg.Error as exc:
+                print(f"[ERRO]      Imóvel {property_id}: arquivo copiado, mas o banco falhou ({exc}).")
+                errors += 1
+                continue
+
+        updated += 1
 
     print("\n--- Resumo ---")
     print(f"Atualizados:            {updated}{'' if apply else '  (dry-run, nada foi salvo — rode com --apply)'}")
@@ -92,7 +125,7 @@ def main() -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Aplica as alterações no banco. Sem essa flag, roda em modo dry-run (só mostra o que faria).",
+        help="Copia o arquivo para o Drive (imoveis) e atualiza o banco. Sem essa flag, roda em modo dry-run (só mostra o que faria).",
     )
     args = parser.parse_args()
 
