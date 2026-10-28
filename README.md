@@ -1,6 +1,6 @@
 # Database de Imóveis
 
-> CLI para gerenciamento de imóveis residenciais com PostgreSQL e Docker.
+> CLI para gerenciamento de banco de dados de imóveis para imobiliária com PostgreSQL e Docker.
 
 ---
 
@@ -89,7 +89,7 @@ docker compose up -d
 
 ### Tecnologias
 
-- Python 3.12+
+- Python 3.13+
 - PostgreSQL 16
 - Docker & Docker Compose
 - `psycopg` (v3) & `psycopg_pool` (Connection Pooling)
@@ -108,7 +108,7 @@ docker compose up -d
 
 ### About
 
-Command-line system for managing residential properties, condos, neighborhoods, and owners, backed by PostgreSQL, Docker Compose orchestration, and integrated with WhatsApp listing automation bots.
+Command-line system for managing selling properties, condos, neighborhoods, and owners, backed by PostgreSQL, Docker Compose orchestration, and integrated with WhatsApp listing automation bots.
 
 ### Project Structure
 
@@ -189,7 +189,7 @@ docker compose up -d
 
 ### Stack
 
-- Python 3.12+
+- Python 3.13+
 - PostgreSQL 16
 - Docker & Docker Compose
 - `psycopg` (v3) & `psycopg_pool` (Connection Pooling)
