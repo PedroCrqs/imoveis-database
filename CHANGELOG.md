@@ -9,6 +9,23 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [2.3.0] — 2026-10-28
+
+#### Adicionado
+
+- **Suporte completo à Zona Sul do Rio de Janeiro**: inclusão de todos os 18 bairros oficiais da Zona Sul na tabela `Bairros` (`Botafogo`, `Catete`, `Copacabana`, `Cosme Velho`, `Flamengo`, `Gávea`, `Glória`, `Humaitá`, `Ipanema`, `Jardim Botânico`, `Lagoa`, `Laranjeiras`, `Leblon`, `Leme`, `Rocinha`, `São Conrado`, `Urca` e `Vidigal`). Atualização direta aplicada no PostgreSQL em produção no Docker e no script `src/seed.py`.
+- **Novas Tipologias de Imóveis (`Garden` e `Loja`)**:
+  - Atualização da constraint `imoveis_tipologia_check` no PostgreSQL em produção e no arquivo `scripts/schema.sql` para aceitar `Garden` e `Loja`, mantendo `Apartamento`, `Casa`, `Cobertura` e `Studio`.
+  - Atualização das constantes `TIPOLOGIA` e `TIPOLOGIA_LABEL` e do menu interativo em `src/main.py`.
+- **Idempotência no `src/seed.py`**: script reformulado para consultar `Bairros` antes de inserir, evitando registros duplicados em execuções repetidas.
+
+#### Alterado
+
+- **Ajuste de volume no `docker-compose.yml`**: documentado e mantido comentado o bind-mount do Google Drive (`/home/pedrocrqs/majesto-drive:...:rshared`) no serviço `imoveis-cli`. Como o rclone é montado como FUSE pelo usuário sem permissão global (`allow_other`), o daemon Docker (executado como root) falhava ao tentar criar/acessar o ponto de montagem, impedindo a subida da stack com `docker compose up -d`. O ajuste foi versionado para garantir estabilidade do compose.
+- **Atualização completa do `README.md`**: revisão abrangente da documentação (em português e inglês) refletindo a migração definitiva para PostgreSQL 16 e Docker Compose, detalhamento das 13 opções do menu interativo, convenções de pastas e arquivos, tipologias e bairros atendidos.
+
+---
+
 ### [2.2.0] — 2026-10-15
 
 #### Alterado
@@ -246,6 +263,23 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [2.3.0] — 2026-10-28
+
+#### Added
+
+- **Full South Zone (Zona Sul) Rio de Janeiro Coverage**: added all 18 official South Zone neighborhoods to the `Bairros` table (`Botafogo`, `Catete`, `Copacabana`, `Cosme Velho`, `Flamengo`, `Gávea`, `Glória`, `Humaitá`, `Ipanema`, `Jardim Botânico`, `Lagoa`, `Laranjeiras`, `Leblon`, `Leme`, `Rocinha`, `São Conrado`, `Urca`, and `Vidigal`). Applied directly to the production PostgreSQL container and in `src/seed.py`.
+- **New Property Typologies (`Garden` and `Loja`)**:
+  - Updated `imoveis_tipologia_check` constraint in the production PostgreSQL database and `scripts/schema.sql` to accept `Garden` and `Loja` in addition to `Apartamento`, `Casa`, `Cobertura`, and `Studio`.
+  - Updated `TIPOLOGIA` and `TIPOLOGIA_LABEL` constants in `src/main.py`.
+- **Idempotency in `src/seed.py`**: refactored the seed script to check existing neighborhood records before insertion, preventing duplicate entries across repeated executions.
+
+#### Changed
+
+- **`docker-compose.yml` Volume Mounting**: commented out and documented the `/home/pedrocrqs/majesto-drive:...:rshared` volume mount under `imoveis-cli`. Because host rclone FUSE mounts without `allow_other` prevent the root Docker daemon from resolving the path, `docker compose up -d` was previously failing to initialize the stack. Versioned this change for runtime stability.
+- **Complete `README.md` Modernization**: overhaul of both Portuguese and English documentations reflecting PostgreSQL 16 and Docker Compose architecture, option 13 in the interactive CLI table, current folder conventions, typologies, and neighborhood coverage.
 
 ---
 

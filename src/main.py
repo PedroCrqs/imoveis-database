@@ -129,8 +129,8 @@ ZONES = ["Zona Oeste", "Zona Sudoeste", "Zona Sul", "Zona Norte"]
 ZONES_LABEL = "0: Zona Oeste, 1: Zona Sudoeste, 2: Zona Sul, 3: Zona Norte"
 SUN_OPTS = ["Manhã", "Tarde", "Passante"]
 SUN_OPTS_LABEL = "0: Manhã, 1: Tarde, 2: Passante"
-TIPOLOGIA = ["Apartamento", "Casa", "Cobertura", "Studio"]
-TIPOLOGIA_LABEL = "0: Apartamento, 1: Casa, 2: Cobertura, 3: Studio"
+TIPOLOGIA = ["Apartamento", "Casa", "Cobertura", "Studio", "Garden", "Loja"]
+TIPOLOGIA_LABEL = "0: Apartamento, 1: Casa, 2: Cobertura, 3: Studio, 4: Garden, 5: Loja"
 VALID_STATUS_LABEL = "0: Disponível | 1: Vendido | 2: Alugado | 3: Retirado de Venda"
 
 

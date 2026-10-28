@@ -30,7 +30,9 @@ services:
       DRIVE_DIR: /home/pedrocrqs/majesto-drive
     volumes:
       - ./data:/app/data
-      - /home/pedrocrqs/majesto-drive:/home/pedrocrqs/majesto-drive:rshared
+      # Comentado por padrao: o mount FUSE (rclone) no host sem allow_other
+      # impede o daemon Docker de inicializar o volume com :rshared.
+      # - /home/pedrocrqs/majesto-drive:/home/pedrocrqs/majesto-drive:rshared
     depends_on:
       db:
         condition: service_healthy

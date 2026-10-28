@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS Condominios (
 CREATE TABLE IF NOT EXISTS Imoveis (
     ImovelID        SERIAL PRIMARY KEY,
     CondominioID    INTEGER NULL,
-    Tipologia       VARCHAR(50) NOT NULL CHECK (Tipologia IN ('Apartamento', 'Casa', 'Cobertura', 'Studio')),
+    Tipologia       VARCHAR(50) NOT NULL CHECK (Tipologia IN ('Apartamento', 'Casa', 'Cobertura', 'Studio', 'Garden', 'Loja')),
     Quartos         INTEGER NOT NULL,
     Vagas           INTEGER DEFAULT 0,
     Valor           NUMERIC(15, 2) NOT NULL,
