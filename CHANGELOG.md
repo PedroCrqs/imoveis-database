@@ -9,6 +9,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [2.4.0] — 2026-10-28
+
+#### Alterado
+
+- **Tradução completa da interface CLI e mensagens para Português**:
+  - Menu principal, prompts de entrada (`prompt`, `prompt_int`, `prompt_float`, `prompt_optional_float`), mensagens de sucesso (`[OK]`), avisos de erro (`[!]`) e cabeçalhos em `src/main.py` totalmente traduzidos para português.
+  - Mensagens de exceções e erros de validação traduzidas para português em `src/repository.py` (`LookupError`, `ValueError`, `FileNotFoundError`, `NotADirectoryError`) e `src/backup.py`.
+  - Mensagens de log em `src/seed.py` traduzidas para português.
+  - Código-fonte, variáveis, queries e nomes de funções mantidos estritamente em inglês.
+
+---
+
 ### [2.3.0] — 2026-10-28
 
 #### Adicionado
@@ -263,6 +275,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [2.4.0] — 2026-10-28
+
+#### Changed
+
+- **Full CLI interface and messages translated to Portuguese**:
+  - Main menu, input prompts (`prompt`, `prompt_int`, `prompt_float`, `prompt_optional_float`), success messages (`[OK]`), error logs (`[!]`), and section headers in `src/main.py` translated to Portuguese.
+  - Exception messages and runtime validation errors translated to Portuguese in `src/repository.py` (`LookupError`, `ValueError`, `FileNotFoundError`, `NotADirectoryError`) and `src/backup.py`.
+  - Log outputs in `src/seed.py` translated to Portuguese.
+  - Source code, variable names, database queries, and function identifiers kept strictly in English.
 
 ---
 

@@ -74,7 +74,7 @@ async def sync_photos(direction: str) -> None:
     elif direction == "download":
         await asyncio.to_thread(sync_folder, IMOVEIS_DRIVE, IMOVEIS_LOCAL)
     else:
-        raise ValueError(f"Invalid direction: '{direction}'")
+        raise ValueError(f"Direção inválida: '{direction}'")
 
 
 def update_description_prices(

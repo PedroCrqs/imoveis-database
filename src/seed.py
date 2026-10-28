@@ -44,7 +44,7 @@ def populate_bairros() -> None:
             """,
             [(nome, zona, nome) for nome, zona in bairros],
         )
-        print("[OK] Neighborhoods population completed.")
+        print("[OK] Preenchimento de bairros concluído.")
 
 
 if __name__ == "__main__":

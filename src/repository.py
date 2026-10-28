@@ -112,7 +112,7 @@ def add_photos(folder_path: str, property_id: int) -> list[int]:
     folder = Path(folder_path)
 
     if not folder.is_dir():
-        raise NotADirectoryError(f"'{folder_path}' is not a valid directory.")
+        raise NotADirectoryError(f"'{folder_path}' não é um diretório válido.")
 
     photos = sorted(
         p
@@ -121,7 +121,7 @@ def add_photos(folder_path: str, property_id: int) -> list[int]:
     )
 
     if not photos:
-        raise FileNotFoundError(f"No images found in '{folder_path}'.")
+        raise FileNotFoundError(f"Nenhuma imagem encontrada em '{folder_path}'.")
 
     query = "INSERT INTO Fotos (ImovelID, CaminhoArquivo, Principal) VALUES (%s, %s, %s) RETURNING FotoID"
     inserted_ids = []
@@ -142,7 +142,7 @@ def add_photos(folder_path: str, property_id: int) -> list[int]:
 
 def update_status(property_id: int, status: str) -> None:
     if status not in VALID_STATUS:
-        raise ValueError(f"Invalid status: '{status}'")
+        raise ValueError(f"Status inválido: '{status}'")
 
     set_date = status in {"Vendido", "Alugado"}
     query = """
@@ -154,7 +154,7 @@ def update_status(property_id: int, status: str) -> None:
     with pool.connection() as conn:
         cursor = conn.execute(query, (status, set_date, property_id))
         if cursor.rowcount == 0:
-            raise LookupError(f"No property found with ID {property_id}.")
+            raise LookupError(f"Nenhum imóvel encontrado com o ID {property_id}.")
 
 
 def update_prices(
@@ -180,7 +180,7 @@ def update_prices(
         values.append(new_description)
 
     if not fields:
-        raise ValueError("At least one price field must be provided.")
+        raise ValueError("Pelo menos um campo de valor deve ser informado.")
 
     values.append(property_id)
     query = f"UPDATE Imoveis SET {', '.join(fields)} WHERE ImovelID = %s"
@@ -188,12 +188,12 @@ def update_prices(
     with pool.connection() as conn:
         cursor = conn.execute(query, values)
         if cursor.rowcount == 0:
-            raise LookupError(f"No property found with ID {property_id}.")
+            raise LookupError(f"Nenhum imóvel encontrado com o ID {property_id}.")
 
 
 def update_field(property_id: int, field: str, value: str) -> None:
     if field not in IMOVEIS_UPDATABLE:
-        raise ValueError(f"Field not updatable: '{field}'")
+        raise ValueError(f"Campo não atualizável: '{field}'")
 
     # `field` já é validado contra o whitelist IMOVEIS_UPDATABLE acima —
     # é seguro interpolar o nome da coluna aqui (não é input livre do usuário).
@@ -202,7 +202,7 @@ def update_field(property_id: int, field: str, value: str) -> None:
     with pool.connection() as conn:
         cursor = conn.execute(query, (value, property_id))
         if cursor.rowcount == 0:
-            raise LookupError(f"No property found with ID {property_id}.")
+            raise LookupError(f"Nenhum imóvel encontrado com o ID {property_id}.")
 
 
 def update_condo_name(condo_id: int, name: str) -> None:
@@ -213,7 +213,7 @@ def update_condo_name(condo_id: int, name: str) -> None:
     with pool.connection() as conn:
         cursor = conn.execute(query, (name, condo_id))
         if cursor.rowcount == 0:
-            raise LookupError(f"No condo found with ID {condo_id}.")
+            raise LookupError(f"Nenhum condomínio encontrado com o ID {condo_id}.")
 
 
 # ─────────────────────────────────────────────
