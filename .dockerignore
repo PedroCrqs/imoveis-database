@@ -2,6 +2,7 @@
 .gitignore
 .env
 .env.*
+.env.save
 
 pgdata/
 .pgdata/
@@ -13,6 +14,7 @@ rclone/rclone.conf
 __pycache__/
 *.pyc
 venv/
+.venv/
 
 CHANGELOG.md
 README.md

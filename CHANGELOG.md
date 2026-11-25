@@ -9,6 +9,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+### [2.4.1] — 2026-11-25
+
+#### Corrigido
+
+- **Exclusão de `.venv/` e `.env.save` no `.dockerignore`**:
+  - Adicionado `.venv/` (1,3 GB no host remoto) ao `.dockerignore` — anteriormente apenas `venv/` estava listado, fazendo com que o `COPY . .` do `Dockerfile` do `imoveis-cli` enviasse e copiasse todo o virtualenv local para dentro da imagem.
+  - Adicionado `.env.save` para evitar envio de backups locais de variáveis de ambiente ao contexto de build Docker.
+
+---
+
 ### [2.4.0] — 2026-10-28
 
 #### Alterado
@@ -275,6 +285,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 All notable changes to this project will be documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+### [2.4.1] — 2026-11-25
+
+#### Fixed
+
+- **Exclude `.venv/` and `.env.save` in `.dockerignore`**:
+  - Added `.venv/` (1.3 GB on the remote host) to `.dockerignore` — previously only `venv/` was listed, causing `imoveis-cli`'s `Dockerfile` (`COPY . .`) to send and copy the entire host virtualenv into the build context and image.
+  - Added `.env.save` to prevent local environment backup files from entering the Docker build context.
 
 ---
 
